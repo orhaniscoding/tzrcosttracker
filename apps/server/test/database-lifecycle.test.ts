@@ -163,7 +163,7 @@ describe('on-disk database lifecycle', () => {
       database.sqlite.exec('CREATE TABLE child_fixture(value TEXT NOT NULL)');
       database.sqlite.prepare('INSERT INTO child_fixture(value) VALUES (?)').run('committed in WAL');
       process.send('LEASE_HELD');
-      setInterval(() => {}, 1000);
+      setInterval(() => { if (!database.sqlite.open) process.exit(1); }, 1000);
     `;
     const child = spawn(process.execPath, ['--input-type=module', '--eval', program, '--', databasePath], {
       cwd: import.meta.dirname + '/..',
