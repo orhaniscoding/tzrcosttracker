@@ -14,7 +14,9 @@ describe('CSV export formula injection', () => {
     const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usernameOrEmail: 'csv_admin', password: PASSWORD } }); expect(login.statusCode).toBe(200); token = JSON.parse(login.body).token;
     catDanger = (await (app as any).categoryRepo.createCategory({ name: '=Danger; ' + Q + 'cat' + Q })).id;
     catPlain = (await (app as any).categoryRepo.createCategory({ name: 'PlainCat' })).id;
-    await addTx({ type: 'income', date: '2026-01-10T10:00:00.000Z', amount: 123.5, currency: '=TX', categoryId: catDanger, title: '=2+5; ' + Q + 'x' + Q + '\r\nline2', party: '\t@party', description: ' \uFF1Dfull', isPaid: true });
+    const legacy = await addTx({ type: 'income', date: '2026-01-10T10:00:00.000Z', amount: 123.5, currency: 'TRY', categoryId: catDanger, title: '=2+5; ' + Q + 'x' + Q + '\r\nline2', party: '\t@party', description: ' \uFF1Dfull', isPaid: true });
+    // Keep defensive coverage for historical rows created before currency validation.
+    app.sqlite.prepare('UPDATE transactions SET currency = ? WHERE id = ?').run('=TX', legacy.transaction.id);
     await addTx({ type: 'income', date: '2026-01-11T10:00:00.000Z', amount: 42, currency: 'USD', categoryId: catPlain, title: '   +SUM(1,2)', party: '\u0001-party', description: '\r\n@desc', isPaid: true });
     await addTx({ type: 'income', date: '2026-01-12T10:00:00.000Z', amount: 7, currency: 'EUR', categoryId: catPlain, title: 'Total = A+B; ' + Q + 'note' + Q + '\r\nsecond', party: 'Plain - text', description: 'Price -5 and @home inside', isPaid: true });
     await addTx({ type: 'income', date: '2026-01-13T10:00:00.000Z', amount: 9, currency: 'TRY', categoryId: catPlain, title: '\uFF0Badd', party: '\uFF0Dminus', description: '\uFF20at', isPaid: true });

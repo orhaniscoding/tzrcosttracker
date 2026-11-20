@@ -38,7 +38,7 @@ Yerel geliştirmede Vite sunucusu API isteklerini yapılandırılmış Fastify p
 
 İlk kurulum sihirbazı ilk yöneticiyi, başlangıç projesini ve ayarları oluşturur. Sunucu tarafında bir kurulum sırrı gerektirir. Sonraki hesapları yönetici açar. Normal giriş, etkin veritabanı oturumuna bağlı imzalı JWT üretir. API oturum kimliğini, süresini, iptal durumunu ve kullanıcının güncel durumunu kontrol eder. Korumalı işlemler geçerli rolü ve proje üyeliğini denetler. Tarayıcıdaki kontroller kullanıcının bu izinler içinde gezinmesini sağlar. Erişim denetimini API uygular.
 
-Parolalar scrypt özetleriyle doğrulanır. TOTP kurulumu geçerli kullanıcı ve oturuma bağlıdır. Kurtarma kodları tek kullanımlıktır. Çıkış ve yönetici iptali veritabanı oturumlarını geçersiz kılar. Tarayıcıdaki istemci oturumu temizlenebilir veya kilitlenebilir. Güvenilir cihaz kullanın ve tarayıcı erişimini hesap güvenliğinin bir parçası olarak koruyun. [API referansı](API.md)
+Parolalar scrypt özetleriyle doğrulanır. TOTP kurulumu geçerli kullanıcı ve oturuma bağlıdır. Kurtarma kodları tek kullanımlıktır. Çıkış ve yönetici iptali veritabanı oturumlarını geçersiz kılar. Tarayıcı oturum belirtecini açık sayfanın belleğinde tutar. Sayfayı yenilediğinizde tekrar giriş yapmanız gerekir. Güvenilir cihaz kullanın ve tarayıcı erişimini hesap güvenliğinin bir parçası olarak koruyun. [API referansı](API.md)
 
 ## Alan koruması ve denetim
 

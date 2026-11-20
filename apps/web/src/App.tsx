@@ -29,6 +29,7 @@ import { SecuritySettingsView } from './components/SecuritySettingsView.js';
 import { BackupCenterView } from './components/BackupCenterView.js';
 import { LiquidityHubView } from './components/LiquidityHubView.js';
 import { ApiClient } from './api/client.js';
+import { createExpenseSubmission, sendExpense } from './expense-submission.js';
 import { ProjectScopeController, canRenderScopedView } from './project-scope.js';
 import { canAccessView, canCreateProject, canMutateTransactions, canManageCategories, isValidRole } from './view-access.js';
 import type { Transaction } from '@cost-core/types';
@@ -278,19 +279,22 @@ export const App: React.FC = () => {
     const request = ApiClient.getToken() ? ApiClient.logout() : Promise.resolve(null);
     resetLocalSession();
     const gen = sessionGenRef.current;
-    Promise.resolve(request).then((res: any) => { if (res && res.ok === false) throw new Error('logout'); }).catch(() => { if (sessionGenRef.current === gen && !ApiClient.getToken()) setAuthError(t("Cikis sunucuda tamamlanamadi.", "The server did not complete sign-out.")); });
+    Promise.resolve(request).then((res: any) => { if (res && res.ok === false) throw new Error('logout'); }).catch(() => { if (sessionGenRef.current === gen && !ApiClient.getToken()) setAuthError(t("Çıkış sunucuda tamamlanamadı.", "The server did not complete sign-out.")); });
   };
   const handleLogout = handleLogoutToLogin;
-  const handleSessionExpired = () => { resetLocalSession(); setAuthError(t("Oturumunuz sona erdi. Lutfen tekrar giris yapin.", "Your session has expired. Sign in again.")); };
+  const handleSessionExpired = () => { resetLocalSession(); setAuthError(t("Oturumunuz sona erdi. Lütfen tekrar giriş yapın.", "Your session has expired. Sign in again.")); };
   useEffect(() => ApiClient.subscribeSessionInvalid(handleSessionExpired), []);
 
-  const handleAddTransaction = async (txData: any) => {
-    if (!canAccessView(userRef.current?.role, 'transactions_new') || !scopeController.getSnapshot().ready) return;
+  const expenseSubmit = React.useMemo(() => createExpenseSubmission(sendExpense), []);
+  useEffect(() => ApiClient.subscribeAuthChange(expenseSubmit.clear), [expenseSubmit]);
+  const handleAddTransaction = async (txData: Record<string, unknown>) => {
+    if (!canAccessView(userRef.current?.role, 'transactions_new') || !scopeController.getSnapshot().ready) {
+      throw new Error('The expense form is no longer authorized.');
+    }
     const current = scopeController.captureSession();
-    await ApiClient.createTransaction({
-      ...txData,
-      projectId: scopeController.getSnapshot().selectedProjectId || undefined,
-    });
+    const projectId = scopeController.getSnapshot().selectedProjectId || undefined;
+    if (txData.projectId !== projectId) throw new Error('The selected project changed.');
+    await expenseSubmit(JSON.stringify([ApiClient.getAuthGeneration(), projectId]), { ...txData, projectId });
     if (!current()) return;
     await loadData();
   };
@@ -686,9 +690,7 @@ export const App: React.FC = () => {
 
           {/* 6.3 ŞİFRELİ SİSTEM YEDEĞİ (.tzrvault) */}
           {currentView === 'backup_vault' && (
-            <BackupCenterView
-              onRestored={loadData}
-            />
+            <BackupCenterView />
           )}
 
           {/* 6.4 ÇÖP KUTUSU & GERİ ALMA (SOFT-DELETE) */}

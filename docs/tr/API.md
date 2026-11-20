@@ -120,7 +120,7 @@ Tekrar denenen oluşturmada aynı kullanıcı, aynı gövde ve aynı `Idempotenc
 | --- | --- | --- |
 | `GET /api/reports/balance` | Giriş yapılmış | Kapsamdaki bakiye verisini döndürür; doğrulanmış tarih ve proje filtrelerini destekler. |
 | `GET /api/reports/summary` | Giriş yapılmış | Kapsamdaki mali özet verisini döndürür. |
-| `GET /api/reports/export/csv` | Giriş yapılmış | Kapsamlı CSV raporu akıtır. Yanıtı mali veri olarak koruyun. |
+| `GET /api/reports/export/csv` | Giriş yapılmış | Kapsamdaki CSV raporunu oluşturup indirir. Sonuç bellekte hazırlanır. 10.000 üzeri kayıtta `413 CSV_EXPORT_LIMIT_EXCEEDED` döner; tarih aralığını daraltın. Yanıtı mali veri olarak koruyun. |
 | `GET /api/audit` | Taze admin | Denetim olaylarını listeler. |
 | `GET /api/audit/verify` | Taze admin | Denetim zincirinin bozulup bozulmadığını doğrular. |
 
@@ -140,8 +140,8 @@ Rapor filtreleri rota doğrulamasının kabul ettiği ISO tarih ve zamanlarını
 
 | Yöntem ve yol | Kimlik/rol | Amaç |
 | --- | --- | --- |
-| `POST /api/backup/export` | Giriş yapılmış; yedek izni | Eski kısmi yedek biçimini dışa aktarır. Desteklenen tam veritabanı dışa aktarımı için V2'yi kullanın. |
-| `POST /api/backup/import` | Giriş yapılmış; yedek izni | Eski biçimi doğrulama kurallarıyla içe aktarır. |
+| `POST /api/backup/export` | Güncel yönetici oturumu | Kaldırıldı. `410 BACKUP_V1_RETIRED` döndürür. |
+| `POST /api/backup/import` | Güncel yönetici oturumu | Kaldırıldı. Veriyi değiştirmeden `410 BACKUP_V1_RETIRED` döndürür. |
 | `POST /api/backup/export-v2` | Taze admin | Parola korumalı V2 vault oluşturur. Parola gövdede gönderilir; HTTPS kullanın ve günlüğe yazmayın. |
 
 V2 geri yükleme bilinçli olarak çevrimdışıdır. Derlenmiş `recovery-cli.js` komutunu mutlak veritabanı yolu, bayt sınırı ve mutlak vault yolu ile çalıştırın; yedek parolasını stdin üzerinden verin. Önce API'yi durdurun, volume ve SQLite yan dosyalarını doğrulayın, komutun bildirdiği geri alma kopyasını saklayın. [İşletim kılavuzuna](OPERATIONS.md) ve [kurulum kılavuzuna](INSTALL.md) bakın.

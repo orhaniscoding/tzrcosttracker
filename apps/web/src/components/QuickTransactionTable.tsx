@@ -1,3 +1,4 @@
+import { formatCurrency } from '../format-currency.js';
 import React, { useState } from 'react';
 import { useLocale } from '../context/LocaleContext.js';
 import { Plus, Search, Tag, CheckCircle2, Link as LinkIcon, UserCheck, Edit2, Trash2, Check, Filter } from 'lucide-react';
@@ -238,10 +239,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                     </td>
 
                     <td className="py-2 px-3 text-right font-bold font-mono text-slate-900 text-[13px]">
-                      {new Intl.NumberFormat(intlLocale, {
-                        style: 'currency',
-                        currency: tx.currency || 'TRY',
-                      }).format(tx.amount)}
+                      {formatCurrency(intlLocale, tx.currency || 'TRY', tx.amount)}
                     </td>
 
                     <td className="py-2 px-3 text-center">{tx.type || 'Belirtilmemiş'}</td>

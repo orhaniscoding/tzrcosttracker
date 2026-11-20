@@ -591,48 +591,18 @@ describe('@cost-core/server - Full API & Security Integration Tests', () => {
   });
 
   // 21. ASKERİ DÜZEYDE ŞİFRELİ SİSTEM YEDEĞİ (.tzrvault) ALMA VE GERİ YÜKLEME
-  it('POST /api/backup/export and /import should export and restore encrypted .tzrvault', async () => {
-    const backupPassword = 'GucluYedekParolasi2026!';
-
-    // 1. Şifreli Yedek Al
-    const exportRes = await app.inject({
-      method: 'POST',
-      url: '/api/backup/export',
-      headers: { authorization: `Bearer ${authToken}` },
-      payload: { backupPassword },
-    });
-    expect(exportRes.statusCode).toBe(200);
-    const exportBody = JSON.parse(exportRes.body);
-    expect(exportBody.success).toBe(true);
-    expect(exportBody.vaultData).toContain('TZRVAULT:v1:');
-    expect(exportBody.filename).toContain('.tzrvault');
-
-    // 2. Yanlış Parola ile Geri Yüklemeyi Dene -> 400 dönmeli
-    const failRestore = await app.inject({
-      method: 'POST',
-      url: '/api/backup/import',
-      headers: { authorization: `Bearer ${authToken}` },
-      payload: {
-        backupPassword: 'YanlisParola!',
-        vaultData: exportBody.vaultData,
-      },
-    });
-    expect(failRestore.statusCode).toBe(400);
-
-    // 3. Doğru Parola ile Geri Yükle -> 200 dönmeli
-    const successRestore = await app.inject({
-      method: 'POST',
-      url: '/api/backup/import',
-      headers: { authorization: `Bearer ${authToken}` },
-      payload: {
-        backupPassword,
-        vaultData: exportBody.vaultData,
-      },
-    });
-    expect(successRestore.statusCode).toBe(200);
-    expect(JSON.parse(successRestore.body).success).toBe(true);
+  it('uses the supported V2 backup endpoint and retires live legacy operations', async () => {
+    const headers = { authorization: `Bearer ${authToken}` };
+    const payload = { backupPassword: 'secure-test-backup-password' };
+    const result = await app.inject({ method: 'POST', url: '/api/backup/export-v2', headers, payload });
+    expect(result.statusCode).toBe(200);
+    expect(result.json().vaultData).toMatch(/^TZRVAULT:v2:/);
+    for (const operation of ['export', 'import']) {
+      const legacy = await app.inject({ method: 'POST', url: '/api/backup/' + operation, headers, payload });
+      expect(legacy.statusCode).toBe(410);
+      expect(legacy.json().code).toBe('BACKUP_V1_RETIRED');
+    }
   });
-
   // 22. ÇOKLU CÜZDAN, LİKİDİTE HUB'I, VİRMAN VE BAKİYE MUTABAKATI
   it('POST /api/accounts, /transfer, and /liquidity/summary should manage multi-currency wallets and internal transfers', async () => {
     // 1. Kasa Hesabı Oluştur (100.000 TL)

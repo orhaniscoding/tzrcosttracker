@@ -1,5 +1,10 @@
 import { z } from 'zod';
 export { z };
+// Currency codes used by the ledger and Intl.NumberFormat. A syntactic check
+// preserves custom and historic codes without mislabeling their amounts.
+export const normalizeLedgerCurrency = (code: string): string =>
+  code.length === 3 && /^[A-Za-z]{3}$/.test(code) ? code.toUpperCase() : code;
+export const CurrencyCodeSchema = z.string().length(3).regex(/^[A-Za-z]{3}$/).transform(normalizeLedgerCurrency);
 
 // ==========================================
 // 1. KULLANICI & YETKİLENDİRME (AUTH & RBAC)
@@ -18,7 +23,7 @@ export const ProjectSchema = z.object({
   code: z.string().max(30).optional().nullable(),
   description: z.string().max(500).optional().nullable(),
   budget: z.number().default(0),
-  currency: z.string().default('TRY'),
+  currency: CurrencyCodeSchema.default('TRY'),
   status: z.enum(['active', 'completed', 'archived']).default('active'),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -30,7 +35,7 @@ export const CreateProjectSchema = z.object({
   code: z.string().max(30).optional().nullable(),
   description: z.string().max(500).optional().nullable(),
   budget: z.number().optional().default(0),
-  currency: z.string().optional().default('TRY'),
+  currency: CurrencyCodeSchema.default('TRY'),
 });
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 
@@ -199,7 +204,7 @@ export const AccountSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(100),
   type: AccountTypeSchema.default('cash'),
-  currency: z.string().min(3).max(3).default('TRY'),
+  currency: CurrencyCodeSchema.default('TRY'),
   balance: z.number().default(0),
   creditLimit: z.number().optional().default(0),
   statementClosingDay: z.number().int().min(1).max(31).optional().nullable(),
@@ -217,7 +222,7 @@ export type Account = z.infer<typeof AccountSchema>;
 export const CreateAccountSchema = z.object({
   name: z.string().min(1).max(100),
   type: AccountTypeSchema.default('cash'),
-  currency: z.string().min(3).max(3).default('TRY'),
+  currency: CurrencyCodeSchema.default('TRY'),
   initialBalance: z.number().optional().default(0),
   creditLimit: z.number().optional().default(0),
   statementClosingDay: z.number().int().min(1).max(31).optional().nullable(),
@@ -267,7 +272,7 @@ export const TransactionSchema = z.object({
   date: z.string().datetime(),
   amount: z.number().positive(),
   amountInWords: z.string().optional(),
-  currency: z.string().min(3).max(3).default('TRY'),
+  currency: CurrencyCodeSchema.default('TRY'),
   exchangeRate: z.number().positive().default(1),
   baseAmount: z.number().positive(), // Tutar * Kur
   categoryId: z.string().uuid(),
@@ -299,7 +304,7 @@ export const CreateTransactionSchema = z.object({
   type: TransactionTypeSchema.default('expense'),
   date: z.string().datetime(),
   amount: z.number().positive(),
-  currency: z.string().min(3).max(3).default('TRY'),
+  currency: CurrencyCodeSchema.default('TRY'),
   exchangeRate: z.number().positive().default(1),
   categoryId: z.string().uuid(),
   subcategoryId: z.string().uuid().nullable().optional(),
@@ -367,10 +372,11 @@ export const WhiteLabelConfigSchema = z.object({
   primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#2563EB'),
   secondaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#1E40AF'),
   defaultTheme: z.enum(['light', 'dark', 'system']).default('dark'),
-  baseCurrency: z.string().min(3).max(3).default('TRY'),
+  baseCurrency: CurrencyCodeSchema.default('TRY'),
   dateFormat: z.string().default('DD.MM.YYYY'),
   updatedAt: z.string().datetime().optional(),
 });
 export type WhiteLabelConfig = z.infer<typeof WhiteLabelConfigSchema>;
-export { moneyFromMinor, moneyFromMajorNumber, moneyToMinor, moneyToMajorNumber, convertMoneyExact } from "./money.js";
+export { moneyFromMinor, moneyFromMajorNumber, moneyToMinor, moneyToMajorNumber, convertMoneyExact, convertLedgerAmount, convertPositiveLedgerAmount, LedgerConversionError } from "./money.js";
 export type { MoneyPolicy, MoneyV1, RationalRate } from "./money.js";
+export { cashEffectOf, isOtoKasaIncome, isRecognizedStatus, roundLedgerMoney } from './reporting.js';

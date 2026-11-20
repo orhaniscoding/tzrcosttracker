@@ -1,3 +1,4 @@
+import { convertPositiveLedgerAmount, normalizeLedgerCurrency } from '@cost-core/types';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { CostCoreDatabase } from '../client.js';
@@ -72,7 +73,7 @@ export class AccountRepository {
       id: r.id,
       name: r.name,
       type: r.type as any,
-      currency: r.currency,
+      currency: normalizeLedgerCurrency(r.currency),
       balance,
       creditLimit,
       statementClosingDay: r.statementClosingDay,
@@ -180,7 +181,7 @@ export class AccountRepository {
 
     // Kur dönüşümü
     const exchangeRate = input.exchangeRate || 1;
-    const targetAmount = input.amount * exchangeRate;
+    const targetAmount = convertPositiveLedgerAmount(input.amount, exchangeRate);
 
     // Kaynaktan düş, hedefe ekle
     this.adjustBalance(from.id, -input.amount, masterKey);

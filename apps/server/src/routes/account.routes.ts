@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { CreateAccountSchema, InternalTransferSchema } from "@cost-core/types";
+import { CreateAccountSchema, InternalTransferSchema, LedgerConversionError } from "@cost-core/types";
 import { AccountRepository, AuditLogRepository, transactions, auditLogs, type AccountReadScope } from "@cost-core/database";
 import { DomainError, GENERIC, accountSnapshot, money } from "../financial-effects.js";
 import { computeLiquiditySummary, readBaseCurrencyInTx } from '../financial-report.js';
@@ -15,6 +15,7 @@ export const accountRoutes: FastifyPluginAsync = async (fastify) => {
   const key = config.masterKey; const pepper = config.blindIndexPepper;
 
   function sendError(reply: any, err: any) {
+    if (err instanceof LedgerConversionError) return reply.status(400).send({ error: 'Tutar veya kur dönüşümü desteklenen sınırların dışında.' });
     if (err instanceof SessionInvalidError) return reply.status(401).send({ code: 'SESSION_INVALID', error: 'Yetkisiz eri\u015Fim.' });
     if (err instanceof ForbiddenError) return reply.status(403).send({ error: 'Yasak.' });
     if (err instanceof NotFoundError) return reply.status(404).send({ error: 'Bulunamad\u0131.' });

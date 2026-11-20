@@ -14,13 +14,13 @@ pnpm -r rebuild
 pnpm exec turbo run test build --force
 ```
 
-The Linux CI job runs these checks. State the operating systems and runtimes you tested, including whether a Linux run used WSL. For financial calculations, authorization, migrations, or recovery, describe the negative cases and rollback checks you ran.
+The Linux and Windows CI jobs run these checks and test the launchers. Linux CI also audits dependencies and starts the Docker distribution. State the operating systems and runtimes you tested, including whether a Linux run used WSL. For financial calculations, authorization, migrations, or recovery, describe the negative cases and rollback checks you ran.
 
 ## Open a pull request
 
 1. Fork the repository and create a focused branch. Describe the problem, the intended behavior, and the checks you ran. Update the English and Turkish documentation together when behavior changes.
 2. Open a pull request against `main`. A maintainer must approve Actions runs from outside contributors on fork pull requests before CI starts.
-3. Update the branch against `main`, wait for the required `build-test` check to pass, and resolve review conversations before merging. The [main ruleset](https://github.com/orhaniscoding/tzrcosttracker/rules/27718371) requires pull requests and squash merges and blocks force pushes and deletion. The current approval threshold is zero for the single-maintainer repository. The required check and conversation rule apply to maintainers as well.
+3. Update the branch against `main`, wait for `build-test` and `build-test-windows` to pass, and resolve review conversations before merging. The [main ruleset](https://github.com/orhaniscoding/tzrcosttracker/rules/27718371) requires pull requests and squash merges and blocks force pushes and deletion. The current approval threshold is zero for the single-maintainer repository. The required checks and conversation rule apply to maintainers as well. Pin Actions to full commit SHAs. The repository uses Dependabot alerts and secret scanning with push protection.
 
 Use synthetic, isolated databases and fixtures in tests. Keep company and customer data, invoices, reports, passwords, keys, environment files, SQLite files and sidecars, and agent logs out of contributions. Report vulnerabilities through the [security policy](SECURITY.md).
 

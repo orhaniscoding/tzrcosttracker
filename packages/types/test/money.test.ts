@@ -128,3 +128,17 @@ describe("public scientific-token and boundary regressions", () => {
     expect(publicApi.moneyFromMinor(-BigInt(max), "AAA", policy)).toEqual(payload("-" + max));
   });
 });
+import { convertLedgerAmount } from '../src/money.js';
+
+describe('legacy ledger exchange rounding', () => {
+  it.each([[1, 1.005, 1.01], [1, 1.015, 1.02], [0.01, 0.5, 0.01], [0.01, 0.49, 0], [12.34, 2, 24.68]])(
+    'converts %s at %s into %s with one decimal rounding step', (amount, rate, converted) => {
+      expect(convertLedgerAmount(amount, rate)).toBe(converted);
+    },
+  );
+  it('rejects amount or exchange rate that cannot be represented within the ledger bounds', () => {
+    expect(() => convertLedgerAmount(1.001, 1)).toThrow(RangeError);
+    expect(() => convertLedgerAmount(10, Infinity)).toThrow(RangeError);
+    expect(() => convertLedgerAmount(1_000_000_000_000, 100)).toThrow(RangeError);
+  });
+});

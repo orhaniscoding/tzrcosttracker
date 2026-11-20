@@ -1,3 +1,4 @@
+import { convertPositiveLedgerAmount, normalizeLedgerCurrency } from '@cost-core/types';
 
 import { eq, and, gte, lte, desc, isNull, isNotNull, inArray, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
@@ -67,7 +68,7 @@ export class TransactionRepository {
     const customValues = r.customValuesEncrypted ? decryptField<Record<string, any>>(r.customValuesEncrypted, masterKey) : {};
     return {
       id: r.id, projectId: r.projectId, type: r.type as any, date: r.date, amount,
-      amountInWords: numberToTurkishWords(amount, 'Türk Lirası'), currency: r.currency,
+      amountInWords: numberToTurkishWords(amount, 'Türk Lirası'), currency: normalizeLedgerCurrency(r.currency),
       exchangeRate: r.exchangeRate, baseAmount, categoryId: r.categoryId,
       subcategoryId: r.subcategoryId, title, description, party,
       accountFromId: r.accountFromId, accountToId: r.accountToId,
@@ -84,7 +85,7 @@ export class TransactionRepository {
    * Mükerrer (çift) kayıt kontrolü yapar.
    * Aynı gün, aynı proje, aynı başlık ve tutarda başka bir kayıt varsa tespit eder.
    */
-  listTransactionsInScope(filters: TransactionFilter, scope: TransactionReadScope, masterKey: string | Buffer, pepper: string | Buffer): Transaction[] {
+  listTransactionsInScope(filters: TransactionFilter, scope: TransactionReadScope, masterKey: string | Buffer, pepper: string | Buffer, maxRows?: number): Transaction[] {
     const norm = normalizeScope(scope);
     if (norm.kind === 'deny') return [];
     if (filters.projectId && norm.kind === 'restricted' && !norm.projectIds.includes(filters.projectId)) return [];
@@ -108,7 +109,8 @@ export class TransactionRepository {
     if (filters.searchTitle) conditions.push(eq(transactions.titleBlindIndex, createBlindIndex(filters.searchTitle, pepper)));
     if (filters.searchParty) conditions.push(eq(transactions.partyBlindIndex, createBlindIndex(filters.searchParty, pepper)));
     if (!filters.includeDeleted) conditions.push(isNull(transactions.deletedAt));
-    const rows = this.db.select().from(transactions).where(and(...conditions)).orderBy(desc(transactions.date)).all();
+    const query = this.db.select().from(transactions).where(and(...conditions)).orderBy(desc(transactions.date));
+    const rows = maxRows === undefined ? query.all() : query.limit(maxRows).all();
     return rows.map((r) => this.rowToTransaction(r, masterKey));
   }
 
@@ -163,7 +165,7 @@ export class TransactionRepository {
     const id = randomUUID();
     const now = new Date().toISOString();
     const exchangeRate = input.exchangeRate || 1;
-    const baseAmount = input.amount * exchangeRate;
+    const baseAmount = convertPositiveLedgerAmount(input.amount, exchangeRate);
 
     const amountEncrypted = encryptField(input.amount, masterKey);
     const baseAmountEncrypted = encryptField(baseAmount, masterKey);
@@ -426,7 +428,7 @@ export class TransactionRepository {
     if (updates.amount !== undefined || updates.exchangeRate !== undefined) {
       const exchangeRate = updates.exchangeRate ?? existing.exchangeRate;
       const effectiveAmount = updates.amount ?? existing.amount;
-      const baseAmount = effectiveAmount * exchangeRate;
+      const baseAmount = convertPositiveLedgerAmount(effectiveAmount, exchangeRate);
       if (updates.amount !== undefined) updateValues.amountEncrypted = encryptField(updates.amount, masterKey);
       updateValues.baseAmountEncrypted = encryptField(baseAmount, masterKey);
       updateValues.exchangeRate = exchangeRate;
@@ -492,7 +494,7 @@ export class TransactionRepository {
       const newOtoId = randomUUID();
       const otoTitle2 = "🔗 Oto-Kasa: " + mergedTitle;
       const otoDesc2 = "Harcamadan otomatik aktarılan şahsi alacak/kasa kaydı. [" + payerMerged + "]";
-      this.db.insert(transactions).values({ id: newOtoId, projectId: mergedProject || null, type: "income" as const, date: mergedDate, amountEncrypted: updateValues.amountEncrypted || encryptField(mergedAmount, masterKey), currency: mergedCurrency, exchangeRate: mergedRate, baseAmountEncrypted: updateValues.baseAmountEncrypted || encryptField(mergedAmount * mergedRate, masterKey), categoryId: mergedCategory, subcategoryId: mergedSub || null, titleEncrypted: encryptField(otoTitle2, masterKey), titleBlindIndex: createBlindIndex(otoTitle2, pepper), descriptionEncrypted: encryptField(otoDesc2, masterKey), partyEncrypted: encryptField(payerMerged, masterKey), partyBlindIndex: createBlindIndex(payerMerged, pepper), accountFromId: null, accountToId: null, paymentSource: "person_out_of_pocket" as const, payerPersonName: payerMerged, paymentMethod: mergedMethod || "Banka", otoKasaTransactionId: id, dueDate: null, isPaid: eff.isPaid, customValuesEncrypted: "", attachmentsJson: "[]", status: eff.status as any, createdById: existing.createdById, approvedById: null, createdAt: now, updatedAt: now }).run();
+      this.db.insert(transactions).values({ id: newOtoId, projectId: mergedProject || null, type: "income" as const, date: mergedDate, amountEncrypted: updateValues.amountEncrypted || encryptField(mergedAmount, masterKey), currency: mergedCurrency, exchangeRate: mergedRate, baseAmountEncrypted: updateValues.baseAmountEncrypted || encryptField(existing.baseAmount, masterKey), categoryId: mergedCategory, subcategoryId: mergedSub || null, titleEncrypted: encryptField(otoTitle2, masterKey), titleBlindIndex: createBlindIndex(otoTitle2, pepper), descriptionEncrypted: encryptField(otoDesc2, masterKey), partyEncrypted: encryptField(payerMerged, masterKey), partyBlindIndex: createBlindIndex(payerMerged, pepper), accountFromId: null, accountToId: null, paymentSource: "person_out_of_pocket" as const, payerPersonName: payerMerged, paymentMethod: mergedMethod || "Banka", otoKasaTransactionId: id, dueDate: null, isPaid: eff.isPaid, customValuesEncrypted: "", attachmentsJson: "[]", status: eff.status as any, createdById: existing.createdById, approvedById: null, createdAt: now, updatedAt: now }).run();
       this.db.update(transactions).set({ otoKasaTransactionId: newOtoId, updatedAt: now }).where(eq(transactions.id, id)).run();
     } else if (otoIdExisting && wantsPerson) {
       const otoUpdateValues: Record<string, any> = { updatedAt: now, accountFromId: null, accountToId: null };
