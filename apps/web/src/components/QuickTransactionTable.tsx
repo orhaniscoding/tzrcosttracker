@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocale } from '../context/LocaleContext.js';
 import { Plus, Search, Tag, CheckCircle2, Link as LinkIcon, UserCheck, Edit2, Trash2, Check, Filter } from 'lucide-react';
 import type { Transaction, Category } from '@cost-core/types';
 import { useTheme } from '../context/ThemeContext.js';
@@ -29,6 +30,12 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
   selectedProjectId,
 }) => {
   const { settings } = useTheme();
+  const { t, intlLocale, language } = useLocale();
+  const localize = t;
+  const formatDate = (value: string) => {
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+    return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day) ? new Intl.DateTimeFormat(intlLocale).format(new Date(year, month - 1, day)) : value;
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategoryId, setFilterCategoryId] = useState('');
@@ -58,7 +65,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
             style={{ backgroundColor: settings.primaryColor }}
           >
             <Plus className="h-4 w-4" />
-            <span>+ Yeni Harcama Ekle</span>
+            <span>{t('+ Yeni Harcama Ekle', '+ Add expense')}</span>
           </button>}
 
           {/* Kategori Filtresi */}
@@ -69,7 +76,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
               onChange={(e) => setFilterCategoryId(e.target.value)}
               className="bg-white border border-slate-300 text-xs rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:border-blue-600 font-medium"
             >
-              <option value="">Tüm Kategoriler ({categories.length})</option>
+              <option value="">{t('Tüm Kategoriler', 'All Categories')} ({categories.length})</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.parentId ? `› ${cat.name}` : cat.name}
@@ -84,9 +91,9 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
             onChange={(e) => setFilterPaidStatus(e.target.value)}
             className="bg-white border border-slate-300 text-xs rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:border-blue-600 font-medium"
           >
-            <option value="all">Tüm ödeme durumları</option>
-            <option value="paid">Ödenenler</option>
-            <option value="pending">Ödenmeyenler</option>
+            <option value="all">{t('Tüm ödeme durumları', 'All payment statuses')}</option>
+            <option value="paid">{t('Ödenenler', 'Paid')}</option>
+            <option value="pending">{t('Ödenmeyenler', 'Unpaid')}</option>
           </select>
         </div>
 
@@ -95,7 +102,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
           <Search className="h-4 w-4 absolute left-3 top-2.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Başlık veya tedarikçi ara (Kör İndeks)..."
+            placeholder={t('Başlık veya tedarikçi ara (Kör İndeks)...', 'Search title or supplier (blind index)...')}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -107,34 +114,34 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
       </div>
 
       {/* VERİ TABLOSU (Klasik Excel Görünümü) */}
-      <div className="overflow-x-auto max-w-full" tabIndex={0} role="region" aria-label="İşlem tablosu yatay kaydırma alanı">
+      <div className="overflow-x-auto max-w-full" tabIndex={0} role="region" aria-label={localize("İşlem tablosu yatay kaydırma alanı", "Scrollable transactions table")}>
         <table className="w-full min-w-[1100px] whitespace-nowrap text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-100 text-slate-700 font-semibold uppercase tracking-wider">
-              <th className="py-2.5 px-3 w-14 text-center">İşlem</th>
-              <th className="py-2.5 px-3 w-24">Tarih</th>
-              <th className="py-2.5 px-3">Açıklama / Kalem & Okunuş</th>
-              <th className="py-2.5 px-3 w-40">Kategori / Kırılım</th>
-              <th className="py-2.5 px-3 w-32">Ödeme Kaynağı</th>
-              <th className="py-2.5 px-3 w-32">Tedarikçi / Cari</th>
-              <th className="py-2.5 px-3 w-32 text-right">Tutar</th>
-              <th className="py-2.5 px-3 w-28 text-center">Tür</th>
-              <th className="py-2.5 px-3 w-28 text-center">Durum</th>
-              <th className="py-2.5 px-3 w-28 text-center">Ödeme</th>
-              <th className="py-2.5 px-3 w-28 text-center">Vade</th>
+              <th className="py-2.5 px-3 w-14 text-center">{t('İşlem', 'Action')}</th>
+              <th className="py-2.5 px-3 w-24">{t('Tarih', 'Date')}</th>
+              <th className="py-2.5 px-3">{t('Açıklama / Kalem & Okunuş', 'Description / Item & Reading')}</th>
+              <th className="py-2.5 px-3 w-40">{t('Kategori / Kırılım', 'Category / Breakdown')}</th>
+              <th className="py-2.5 px-3 w-32">{t('Ödeme Kaynağı', 'Payment Source')}</th>
+              <th className="py-2.5 px-3 w-32">{t('Tedarikçi / Cari', 'Supplier / Account')}</th>
+              <th className="py-2.5 px-3 w-32 text-right">{t('Tutar', 'Amount')}</th>
+              <th className="py-2.5 px-3 w-28 text-center">{t('Tür', 'Type')}</th>
+              <th className="py-2.5 px-3 w-28 text-center">{t('Durum', 'Status')}</th>
+              <th className="py-2.5 px-3 w-28 text-center">{t('Ödeme', 'Payment')}</th>
+              <th className="py-2.5 px-3 w-28 text-center">{t('Vade', 'Due Date')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 font-normal">
             {isLoading ? (
               <tr>
                 <td colSpan={11} className="py-8 text-center text-slate-500">
-                  Veriler şifresi çözülerek yükleniyor...
+                  {localize("Veriler şifresi çözülerek yükleniyor...", "Loading transactions…")}
                 </td>
               </tr>
             ) : filteredTransactions.length === 0 ? (
               <tr>
                 <td colSpan={11} className="py-8 text-center text-slate-500">
-                  Kayıtlı bir harcama bulunmuyor.
+                  {localize("Kayıtlı bir harcama bulunmuyor.", "There are no expenses yet.")}
                 </td>
               </tr>
             ) : (
@@ -156,7 +163,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                         <button
                           onClick={() => { if (canMutate) onEditTransaction(tx); }}
                           className="p-1 rounded text-slate-500 hover:text-blue-700 hover:bg-slate-200 transition"
-                          title="Kaydı Düzenle"
+                          title={localize("Kaydı Düzenle", "Edit transaction")}
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
@@ -168,7 +175,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                             }
                           }}
                           className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                          title="Kaydı Sil"
+                          title={localize("Kaydı Sil", "Delete transaction")}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -176,7 +183,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                     </td>
 
                     <td className="py-2 px-3 text-slate-600 font-mono">
-                      {tx.date.split('T')[0]}
+                      {formatDate(tx.date)}
                     </td>
 
                     <td className="py-2 px-3 text-slate-900 font-medium">
@@ -185,13 +192,13 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                         {tx.otoKasaTransactionId && (
                           <span
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-200"
-                            title="Oto-Kasa Çift Taraflı Mahsup Kaydı"
+                            title={localize("Oto-Kasa Çift Taraflı Mahsup Kaydı", "Offset entry for personal funds")}
                           >
                             <LinkIcon className="h-2.5 w-2.5" /> Oto-Kasa
                           </span>
                         )}
                       </div>
-                      {tx.amountInWords && (
+                      {language === 'tr' && tx.amountInWords && (
                         <div className="text-[10px] text-slate-500 italic mt-0.5">
                           {tx.amountInWords}
                         </div>
@@ -222,7 +229,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                           {tx.payerPersonName || 'Şahıs'}
                         </span>
                       ) : (
-                        <span className="text-[11px] text-slate-500">🏢 Şirket Kasası</span>
+                        <span className="text-[11px] text-slate-500">{localize("🏢 Şirket Kasası", "🏢 Company funds")}</span>
                       )}
                     </td>
 
@@ -231,7 +238,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                     </td>
 
                     <td className="py-2 px-3 text-right font-bold font-mono text-slate-900 text-[13px]">
-                      {new Intl.NumberFormat('tr-TR', {
+                      {new Intl.NumberFormat(intlLocale, {
                         style: 'currency',
                         currency: tx.currency || 'TRY',
                       }).format(tx.amount)}
@@ -239,7 +246,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
 
                     <td className="py-2 px-3 text-center">{tx.type || 'Belirtilmemiş'}</td>
                     <td className="py-2 px-3 text-center">
-                      {tx.status || 'Belirtilmemiş'}{tx.deletedAt && <span> Silinmiş</span>}
+                      {tx.status || 'Belirtilmemiş'}{tx.deletedAt && <span>{localize(" Silinmiş", " Deleted")}</span>}
                     </td>
                     <td className="py-2 px-3 text-center">
                       <div className="flex flex-col items-center gap-1">
@@ -247,9 +254,9 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                         {!tx.isPaid && canMutate && <button
                           onClick={() => { if (canMutate) void onMarkPaid(tx.id); }}
                           className="text-[10px] text-blue-700 hover:text-blue-900 font-semibold underline flex items-center gap-0.5"
-                          title="Şimdi Ödendi Olarak İşaretle"
+                          title={localize("Şimdi Ödendi Olarak İşaretle", "Mark as paid now")}
                         >
-                          <Check className="h-3 w-3" /> Ödendi Yap
+                          <Check className="h-3 w-3" />{localize(" Ödendi Yap", " Mark as paid")}
                         </button>}
                       </div>
                     </td>
@@ -257,7 +264,7 @@ export const QuickTransactionTable: React.FC<QuickTransactionTableProps> = ({
                       {tx.dueDate ? (
                         <div className="flex flex-col items-center gap-1">
                           <span>{tx.dueDate.split('T')[0]}</span>
-                          {tx.isPaid === true ? <span>Ödendi</span> : tx.isPaid === false ? <span>{isOverdue ? 'Vadesi geçmiş' : 'Vadeli'}</span> : null}
+                          {tx.isPaid === true ? <span>{localize("Ödendi", "Paid")}</span> : tx.isPaid === false ? <span>{isOverdue ? 'Vadesi geçmiş' : 'Vadeli'}</span> : null}
                         </div>
                       ) : 'Vade belirtilmedi'}
                     </td>

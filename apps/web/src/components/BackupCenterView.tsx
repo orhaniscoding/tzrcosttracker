@@ -14,12 +14,14 @@ import {
   FolderSync,
 } from 'lucide-react';
 import { ApiClient } from '../api/client.js';
+import { useLocale } from '../context/LocaleContext.js';
 
 interface BackupCenterViewProps {
   onRestored: () => Promise<void>;
 }
 
 export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }) => {
+  const { t } = useLocale();
   // Export State
   const [exportPassword, setExportPassword] = useState('');
   const [isExporting, setIsExporting] = useState(false);
@@ -42,7 +44,7 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
   const handleExport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!exportPassword || exportPassword.length < 6) {
-      setError('Yedekleme şifresi en az 6 karakter olmalıdır.');
+      setError(t('Yedekleme şifresi en az 6 karakter olmalıdır.', 'The backup password must be at least 6 characters long.'));
       return;
     }
 
@@ -64,10 +66,10 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      setExportNotice(`Şifreli sistem yedeği başarıyla oluşturuldu ve indirildi! (${res.recordCounts.transactions} hareket, ${res.recordCounts.categories} kategori)`);
+      setExportNotice(t(`Şifreli sistem yedeği başarıyla oluşturuldu ve indirildi! (${res.recordCounts.transactions} hareket, ${res.recordCounts.categories} kategori)`, `The encrypted system backup was created and downloaded (${res.recordCounts.transactions} transactions, ${res.recordCounts.categories} categories).`));
       setExportPassword('');
     } catch (err: any) {
-      setError(err.message || 'Yedek oluşturulamadı.');
+      setError(err.message || t('Yedek oluşturulamadı.', 'Could not create the backup.'));
     } finally {
       setIsExporting(false);
     }
@@ -77,7 +79,7 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
     e.preventDefault();
     const passwordBytes = exportV2PasswordBytes;
     if (passwordBytes < 12 || passwordBytes > 256) {
-      setError('V2 yedek parolası 12-256 UTF-8 bayt arasında olmalıdır.');
+      setError(t('V2 yedek parolası 12-256 UTF-8 bayt arasında olmalıdır.', 'The V2 backup password must be 12–256 UTF-8 bytes.'));
       return;
     }
 
@@ -97,10 +99,10 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      setExportNotice(`Tam v2 sistem yedeği indirildi (${res.manifest.totalRows} kayıt, 11 tablo).`);
+      setExportNotice(t(`Tam v2 sistem yedeği indirildi (${res.manifest.totalRows} kayıt, 11 tablo).`, `The full V2 system backup was downloaded (${res.manifest.totalRows} records, 11 tables).`));
       setExportV2Password('');
     } catch (err: any) {
-      setError(err.message || 'V2 yedek oluşturulamadı.');
+      setError(err.message || t('V2 yedek oluşturulamadı.', 'Could not create the V2 backup.'));
     } finally {
       setIsExporting(false);
     }
@@ -123,11 +125,11 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!importFileContent || !importPassword) {
-      setError('Lütfen yedek dosyasını seçin ve şifresini girin.');
+      setError(t('Lütfen yedek dosyasını seçin ve şifresini girin.', 'Select a backup file and enter its password.'));
       return;
     }
 
-    if (!confirm('DİKKAT: Yedekten geri yükleme mevcut verilerinizin üzerine yazacaktır.\nDevam etmek istediğinize emin misiniz?')) {
+    if (!confirm(t('DİKKAT: Yedekten geri yükleme mevcut verilerinizin üzerine yazacaktır.\nDevam etmek istediğinize emin misiniz?', 'WARNING: Restoring from a backup will overwrite your existing data.\nAre you sure you want to continue?'))) {
       return;
     }
 
@@ -141,13 +143,13 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
         vaultData: importFileContent.trim(),
       });
 
-      setImportNotice(res.message);
+      setImportNotice(res.message && t(res.message, 'The V1 backup restored five tables. Full system recovery is unavailable with this format.'));
       setImportPassword('');
       setImportFileContent(null);
       setImportFileName('');
       await onRestored();
     } catch (err: any) {
-      setError(err.message || 'Yedek yüklenemedi. Şifrenin doğru olduğundan emin olun.');
+      setError(err.message || t('Yedek yüklenemedi. Şifrenin doğru olduğundan emin olun.', 'Could not restore the backup. Make sure the password is correct.'));
     } finally {
       setIsImporting(false);
     }
@@ -163,10 +165,10 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900">
-              Askeri Düzeyde Sıfır-Bilgi Şifreli Yedekleme (.tzrvault)
+              {t('Askeri Düzeyde Sıfır-Bilgi Şifreli Yedekleme (.tzrvault)', 'Zero-Knowledge Encrypted Backup (.tzrvault)')}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Tüm harcamalar, cariler, kategoriler, firma ayarları ve kriptografik denetim loglarını AES-256-GCM ile parola korumalı tek dosyada arşivleyin
+              {t('Tüm harcamalar, cariler, kategoriler, firma ayarları ve kriptografik denetim loglarını AES-256-GCM ile parola korumalı tek dosyada arşivleyin', 'Archive expenses, counterparties, categories, company settings, and cryptographic audit logs in a single password-protected AES-256-GCM file.')}
             </p>
           </div>
         </div>
@@ -184,29 +186,28 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 text-slate-900 font-bold text-sm border-b border-slate-200 pb-3">
             <Download className="h-5 w-5 text-blue-600" />
-            <span>Eski Biçim Şifreli Yedek V1 İndir</span>
+            <span>{t('Eski Biçim Şifreli Yedek V1 İndir', 'Download Legacy Encrypted V1 Backup')}</span>
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed">
-            Legacy v1 biçimidir; tam sistem kurtarma sağlamaz ve importer yalnızca beş tabloyu kısmi olarak geri yükler. Belirleyeceğiniz parola ile <strong>AES-256-GCM</strong> ile şifrelenir.
-            Parola kaybedilirse yedek açılamaz.
+            {t('Legacy v1 biçimidir; tam sistem kurtarma sağlamaz ve importer yalnızca beş tabloyu kısmi olarak geri yükler. Belirleyeceğiniz parola ile ', 'The legacy V1 format provides a partial restore of five tables. Your password protects the backup with ')}<strong>AES-256-GCM</strong>{t(' ile şifrelenir. Parola kaybedilirse yedek açılamaz.', ' encryption. If you lose the password, you cannot open the backup.')}
           </p>
 
           <form onSubmit={handleExport} className="space-y-3.5 text-xs">
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Yedek Güvenlik Parolası Belirleyin *
+                {t('Yedek Güvenlik Parolası Belirleyin *', 'Choose a Backup Password *')}
               </label>
               <input
                 type="password"
-                placeholder="En az 6 karakterli güçlü parola..."
+                placeholder={t('En az 6 karakterli güçlü parola...', 'A strong password with at least 6 characters...')}
                 value={exportPassword}
                 onChange={(e) => setExportPassword(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-blue-600"
                 required
               />
               <p className="text-[11px] text-amber-700 mt-1 font-medium">
-                ⚠️ Bu parolayı bir yere not ediniz. Parola unutulursa yedek dosyası geri açılamaz.
+                {t('⚠️ Bu parolayı bir yere not ediniz. Parola unutulursa yedek dosyası geri açılamaz.', '⚠️ Keep this password somewhere safe. You cannot open the backup if you forget it.')}
               </p>
             </div>
 
@@ -216,19 +217,19 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
               className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Download className="h-4 w-4" />
-              <span>{isExporting ? 'Şifreleniyor ve Paketleniyor...' : 'Eski Biçim Yedeği V1 İndir (.tzrvault)'}</span>
+              <span>{isExporting ? t('Şifreleniyor ve Paketleniyor...', 'Encrypting and packaging...') : t('Eski Biçim Yedeği V1 İndir (.tzrvault)', 'Download Legacy V1 Backup (.tzrvault)')}</span>
             </button>
           </form>
 
           <form onSubmit={handleExportV2} className="border-t border-slate-200 pt-4 space-y-3 text-xs">
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">Tam Sistem Yedeği V2</label>
-              <p className="text-slate-500 mb-2">11 veritabanı tablosu ve uygulama anahtarlarını içerir; dosya ekleri dahil değildir. Geri yükleme/rekey akışı henüz bu ekranda sunulmuyor.</p>
-              <p className="text-amber-700 mb-2">V2 parolası 12-256 UTF-8 bayt olmalıdır. Parolayı kaybederseniz yedek açılamaz.</p>
+              <label className="block text-slate-700 font-semibold mb-1">{t('Tam Sistem Yedeği V2', 'Full System Backup V2')}</label>
+              <p className="text-slate-500 mb-2">{t('11 veritabanı tablosu ve uygulama anahtarlarını içerir; dosya ekleri dahil değildir. Geri yükleme/rekey akışı henüz bu ekranda sunulmuyor.', 'Includes 11 database tables and application keys. File attachments are excluded. Restore and rekey are currently unavailable on this screen.')}</p>
+              <p className="text-amber-700 mb-2">{t('V2 parolası 12-256 UTF-8 bayt olmalıdır. Parolayı kaybederseniz yedek açılamaz.', 'The V2 password must be 12–256 UTF-8 bytes. You cannot open the backup if you lose the password.')}</p>
               <input
                 type="password"
-                aria-label="V2 yedek parolası"
-                placeholder="V2 için güçlü parola (12+ UTF-8 bayt)"
+                aria-label={t('V2 yedek parolası', 'V2 backup password')}
+                placeholder={t('V2 için güçlü parola (12+ UTF-8 bayt)', 'Strong V2 password (12+ UTF-8 bytes)')}
                 value={exportV2Password}
                 onChange={(e) => setExportV2Password(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-blue-600"
@@ -241,7 +242,7 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
               className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Download className="h-4 w-4" />
-              <span>{isExporting ? 'Tam yedek şifreleniyor...' : 'Tam Sistem Yedeği V2 İndir'}</span>
+              <span>{isExporting ? t('Tam yedek şifreleniyor...', 'Encrypting the full backup...') : t('Tam Sistem Yedeği V2 İndir', 'Download Full System Backup V2')}</span>
             </button>
           </form>
 
@@ -257,16 +258,16 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 text-slate-900 font-bold text-sm border-b border-slate-200 pb-3">
             <Upload className="h-5 w-5 text-purple-600" />
-            <span>V1 Biçimindeki Yedeği Kısmi Geri Yükle</span>
+            <span>{t('V1 Biçimindeki Yedeği Kısmi Geri Yükle', 'Partially Restore a V1 Backup')}</span>
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed">
-            Daha önce aldığınız <code>.tzrvault</code> dosyasını seçip parolasını girerek yalnız eski v1 biçimini kısmi olarak yükler; tam sistem kurtarma veya v2 restore değildir.
+            {t('Daha önce aldığınız ', 'Select a previously downloaded ')}<code>.tzrvault</code>{t(' dosyasını seçip parolasını girerek yalnız eski v1 biçimini kısmi olarak yükler; tam sistem kurtarma veya v2 restore değildir.', ' file and enter its password to partially restore a legacy V1 backup. Full system and V2 restores are unavailable here.')}
           </p>
 
           <form onSubmit={handleImport} className="space-y-3.5 text-xs">
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">Yedek Dosyası (.tzrvault) *</label>
+              <label className="block text-slate-700 font-semibold mb-1">{t('Yedek Dosyası (.tzrvault) *', 'Backup File (.tzrvault) *')}</label>
               <input
                 type="file"
                 accept=".tzrvault,.txt"
@@ -276,16 +277,16 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
               />
               {importFileName && (
                 <span className="text-[11px] text-emerald-700 font-medium block mt-1">
-                  ✓ Seçildi: {importFileName}
+                  {t('✓ Seçildi: ', '✓ Selected: ')}{importFileName}
                 </span>
               )}
             </div>
 
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">Yedek Açma Parolası *</label>
+              <label className="block text-slate-700 font-semibold mb-1">{t('Yedek Açma Parolası *', 'Backup Password *')}</label>
               <input
                 type="password"
-                placeholder="Yedekleme sırasında belirlediğiniz parola..."
+                placeholder={t('Yedekleme sırasında belirlediğiniz parola...', 'The password you chose when creating the backup...')}
                 value={importPassword}
                 onChange={(e) => setImportPassword(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-purple-600"
@@ -299,7 +300,7 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
               className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${isImporting ? 'animate-spin' : ''}`} />
-              <span>{isImporting ? 'Çözülüyor ve Geri Yükleniyor...' : 'V1 Kısmi Geri Yükleme'}</span>
+              <span>{isImporting ? t('Çözülüyor ve Geri Yükleniyor...', 'Decrypting and restoring...') : t('V1 Kısmi Geri Yükleme', 'Partially Restore V1 Backup')}</span>
             </button>
           </form>
 
@@ -316,17 +317,17 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
       <div className="bg-gradient-to-r from-slate-50 to-blue-50/50 border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
         <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
           <Cloud className="h-5 w-5 text-blue-600" />
-          <span>3. Otomatik Yedekleme & Bulut Entegrasyonu (Google Drive / OneDrive)</span>
+          <span>{t('3. Otomatik Yedekleme & Bulut Entegrasyonu (Google Drive / OneDrive)', '3. Automatic Backup & Cloud Integration (Google Drive / OneDrive)')}</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
           <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
             <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
               <FolderSync className="h-4 w-4 text-emerald-600" />
-              <span>Otomatik Zamanlama</span>
+              <span>{t('Otomatik Zamanlama', 'Automatic Scheduling')}</span>
             </h4>
             <p className="text-slate-500 text-[11px]">
-              Sistem her gün gece 00:00'da veya haftalık olarak yerel diske otomatik şifreli snapshot alır.
+              {t('Sistem her gün gece 00:00\'da veya haftalık olarak yerel diske otomatik şifreli snapshot alır.', 'The system takes an encrypted snapshot on the local disk daily at midnight or weekly.')}
             </p>
             <div className="flex items-center gap-2 pt-1">
               <input
@@ -336,7 +337,7 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
                 onChange={(e) => setAutoBackupEnabled(e.target.checked)}
                 className="h-4 w-4 rounded text-blue-600"
               />
-              <label htmlFor="autoBackup" className="font-semibold text-slate-700">Otomatik Yedek Aktif</label>
+              <label htmlFor="autoBackup" className="font-semibold text-slate-700">{t('Otomatik Yedek Aktif', 'Automatic Backup Enabled')}</label>
             </div>
           </div>
 
@@ -346,7 +347,7 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
               <span>Google Drive Sync</span>
             </h4>
             <p className="text-slate-500 text-[11px]">
-              İndirilen <code>.tzrvault</code> dosyalarını doğrudan Google Drive klasörünüze koyarak tam sıfır-bilgi güvenliği sağlayabilirsiniz.
+              {t('İndirilen ', 'Save the downloaded ')}<code>.tzrvault</code>{t(' dosyalarını doğrudan Google Drive klasörünüze koyarak tam sıfır-bilgi güvenliği sağlayabilirsiniz.', ' files directly to your Google Drive folder to retain zero-knowledge protection.')}
             </p>
           </div>
 
@@ -356,7 +357,7 @@ export const BackupCenterView: React.FC<BackupCenterViewProps> = ({ onRestored }
               <span>OneDrive & Dropbox</span>
             </h4>
             <p className="text-slate-500 text-[11px]">
-              Şifrelenmiş yedek dosyasında hiçbir firma ismi ve tutar açık olmadığı için tüm bulut sağlayıcılarında %100 KVKK/GDPR uyumludur.
+              {t('Şifrelenmiş yedek dosyasında hiçbir firma ismi ve tutar açık olmadığı için tüm bulut sağlayıcılarında %100 KVKK/GDPR uyumludur.', 'Company names and amounts are encrypted in the backup file before you upload it to a cloud provider.')}
             </p>
           </div>
         </div>

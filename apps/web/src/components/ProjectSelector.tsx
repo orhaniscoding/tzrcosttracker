@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocale } from '../context/LocaleContext.js';
 import { Building, Plus, Check } from 'lucide-react';
 import type { Project } from '@cost-core/types';
 
@@ -23,6 +24,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   onSelectProject,
   onCreateProject,
 }) => {
+  const { t, intlLocale } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -40,7 +42,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
       setNewProjectName('');
       setNewProjectBudget('');
       setIsCreating(false);
-    } catch { setError('Proje oluşturulamadı. Lütfen yeniden deneyin.'); }
+    } catch { setError(t('Proje oluşturulamadı. Lütfen yeniden deneyin.', 'Could not create the project. Please try again.')); }
   };
 
   return (
@@ -55,7 +57,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
           {currentProject ? (
             <span className="font-bold text-white">{currentProject.name}</span>
           ) : (
-            <span className="text-slate-300">🏢 Tüm Şantiyeler / Projeler (Konsolide)</span>
+            <span className="text-slate-300">🏢 {t('Tüm Şantiyeler / Projeler (Konsolide)', 'All Sites / Projects (Consolidated)')}</span>
           )}
         </span>
         <span className="text-slate-500">▼</span>
@@ -64,7 +66,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
       {isOpen && !disabled && (
         <div className="absolute left-0 mt-2 w-72 rounded-xl bg-slate-900 border border-slate-800 shadow-2xl z-50 p-2 text-xs">
           <div className="px-2 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 mb-1">
-            Aktif Proje / Şantiye Seçimi
+            {t('Aktif Proje / Şantiye Seçimi', 'Active Project / Site Selection')}
           </div>
 
           <button
@@ -74,7 +76,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             }}
             className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center justify-between transition"
           >
-            <span>🏢 Tüm Projeler (Konsolide Bilanço)</span>
+            <span>🏢 {t('Tüm Projeler (Konsolide Bilanço)', 'All Projects (Consolidated Balance)')}</span>
             {!selectedProjectId && <Check className="h-4 w-4 text-emerald-400" />}
           </button>
 
@@ -91,7 +93,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 <div className="font-medium text-white truncate">{p.name}</div>
                 {p.budget > 0 && (
                   <div className="text-[10px] text-slate-400">
-                    Bütçe: {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(p.budget)}
+                    {t('Bütçe', 'Budget')}: {new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'TRY' }).format(p.budget)}
                   </div>
                 )}
               </div>
@@ -107,14 +109,14 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 className="w-full py-1.5 px-3 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 flex items-center justify-center gap-1 font-medium transition"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span>Yeni Proje / Şantiye Aç</span>
+                <span>{t('Yeni Proje / Şantiye Aç', 'Add Project / Site')}</span>
               </button>
             ) : (
               <form onSubmit={handleCreate} className="space-y-2 p-1">
                 {error && <p role="alert">{error}</p>}
                 <input
                   type="text"
-                  placeholder="Proje / Şantiye Adı *"
+                  placeholder={t('Proje / Şantiye Adı *', 'Project / Site Name *')}
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
@@ -123,7 +125,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 />
                 <input
                   type="number"
-                  placeholder="Hedef Bütçe (TL)"
+                  placeholder={t('Hedef Bütçe (TL)', 'Target Budget (TRY)')}
                   value={newProjectBudget}
                   onChange={(e) => setNewProjectBudget(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
@@ -133,14 +135,14 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                     type="submit"
                     className="flex-1 py-1 rounded bg-blue-600 text-white font-medium hover:bg-blue-500"
                   >
-                    Oluştur
+                    {t('Oluştur', 'Create')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsCreating(false)}
                     className="px-2 py-1 rounded bg-slate-800 text-slate-400 hover:text-white"
                   >
-                    İptal
+                    {t('İptal', 'Cancel')}
                   </button>
                 </div>
               </form>

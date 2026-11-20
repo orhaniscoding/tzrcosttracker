@@ -1,25 +1,20 @@
-# VPS canlı pilot runbooku
+# VPS pilot runbook
 
-Bu belge, TZR Cost Tracker'ı internete açmadan önce operatörün tamamlaması gereken adımları sınırlar. Codex otomatik olarak DNS, firewall, TLS, servis veya gerçek veritabanı değiştirmez.
+[Türkçe](../docs/tr/VPS_PILOT_RUNBOOK.md)
 
-## Mimari
+Use this checklist to test the exact self-hosted deployment with synthetic records before moving company data. The operator manages the VPS, domain, firewall, TLS certificate, secret store, and recovery assets.
 
-- Compose `web` servisi yalnızca `127.0.0.1:${WEB_PORT:-18080}` üzerinde dinler.
-- Dış reverse proxy, Compose için seçilen loopback adresine bağlanır.
-- API konteyneri host portuna açılmaz; web nginx `/api/` isteklerini Compose içindeki API'ye iletir.
-- TLS sertifikası reverse proxy tarafından yönetilir. Sertifika ve özel anahtar depo içine, Compose env dosyasına veya uygulama konteynerine yazılmaz.
+## Pilot prerequisites
 
-## Pilot önkoşulları
+1. Verify the Linux environment, Docker Engine, and Compose plugin on the target VPS. The pilot uses Linux containers.
+2. Point the domain's A or AAAA records at the intended endpoint and verify DNS resolution. Allow HTTPS and the required management connections. Open port 80 if the certificate-validation or redirect setup needs it.
+3. Bind Compose web to `127.0.0.1:${WEB_PORT:-18080}` and forward to it from the external HTTPS proxy. The API stays on the Compose network. nginx routes `/api/` and `/health` to the API. Keep the TLS certificate and key in the proxy's protected store.
+4. Store `JWT_SECRET`, `MASTER_KEY`, `BLIND_INDEX_PEPPER`, and the first-run `BOOTSTRAP_TOKEN` in the operator's secret store. Pass them to the Compose process. Restrict Docker access and process inspection to the operators who need them. Keep the values out of Git, terminal history, logs, and image layers.
+5. Record the tested source revision or image identifier, existing Compose project name, volume, and secret references. Reuse the project name and volume for maintenance and recovery. For a local rehearsal, the launcher prints a checkout-specific project name and uses `.cache/costcore-docker/local.env`. [Local Docker guide](README.md)
 
-1. VPS işletim sistemi ve Docker Compose sürümü desteklenen Linux sürümünde doğrulanır.
-2. Alan adı A/AAAA kaydı VPS adresine yönlendirilir ve DNS yayılımı operatör tarafından doğrulanır.
-3. Ağ kuralı HTTPS ve yönetim için gerekli bağlantılara izin verir. HTTP yönlendirmesi veya sertifika doğrulaması için 80 gerekiyorsa ayrıca açılır. Uygulama portu loopback üzerinde kalır.
-4. `JWT_SECRET`, `MASTER_KEY`, `BLIND_INDEX_PEPPER` ve ilk kurulum için `BOOTSTRAP_TOKEN` güvenli bir secret store veya yalnız root/operatör erişimli dosyada tutulur. Değerler shell geçmişine, loga, image layer'ına veya Git'e yazılmaz.
-5. Sır sağlayıcısı gerekli değerleri Compose komutlarını çalıştıran sürecin ortamına aktarır. `--env-file` için ayrı bir boş dosya kullanılır. Docker erişimi ve süreç ortamı operatörlerle sınırlandırılır.
+## First start with operator-managed secrets
 
-## Yerel doğrulama ve açılış
-
-Aynı Compose proje adını kurulum, güncelleme ve kurtarma boyunca kullanın. Örnek komutları depo kökünde ve sırları devralan kabukta çalıştırın. İlk `up` yeni kurulum içindir. Mevcut bir kurulumda güncellemeden önce aşağıdaki geri dönüş adımlarını uygulayın.
+Run the commands from the repository root. Set `COSTCORE_COMPOSE_PROJECT` to the project name selected for this deployment. Supply the secrets in the process environment and use an explicit empty env file to avoid Compose's implicit `.env` lookup. Use the first `up` in a new installation. Follow the upgrade procedure below before updating an existing installation.
 
 ```sh
 set -eu
@@ -27,59 +22,54 @@ umask 077
 mkdir -p .cache
 test ! -L .cache/compose-empty.env
 touch .cache/compose-empty.env
-test ! -s .cache/compose-empty.env
-: "${JWT_SECRET:?JWT_SECRET süreç ortamında gerekli}"
-: "${MASTER_KEY:?MASTER_KEY süreç ortamında gerekli}"
-: "${BLIND_INDEX_PEPPER:?BLIND_INDEX_PEPPER süreç ortamında gerekli}"
-: "${BOOTSTRAP_TOKEN:?İlk kurulum anahtarı süreç ortamında gerekli}"
-
-docker compose --env-file .cache/compose-empty.env config --quiet
-docker compose --env-file .cache/compose-empty.env build
-docker compose --env-file .cache/compose-empty.env up -d --wait
-docker compose --env-file .cache/compose-empty.env ps
+test -f .cache/compose-empty.env && test ! -s .cache/compose-empty.env || exit 1
+: "${COSTCORE_COMPOSE_PROJECT:?Set the Compose project name}"
+: "${JWT_SECRET:?Set JWT_SECRET in the process environment}"
+: "${MASTER_KEY:?Set MASTER_KEY in the process environment}"
+: "${BLIND_INDEX_PEPPER:?Set BLIND_INDEX_PEPPER in the process environment}"
+: "${BOOTSTRAP_TOKEN:?Set BOOTSTRAP_TOKEN for first setup}"
+costcore_compose() {
+  docker compose --env-file .cache/compose-empty.env -f compose.yaml -p "$COSTCORE_COMPOSE_PROJECT" "$@"
+}
+costcore_compose config --quiet
+costcore_compose build
+costcore_compose up -d --wait
+costcore_compose ps
 curl -fsS "http://127.0.0.1:${WEB_PORT:-18080}/health"
 ```
 
-İlk yönetici için kurulum ekranına `BOOTSTRAP_TOKEN` değerini girin. Kurulumdan sonra anahtarı sır sağlayıcısından ve kabuktan kaldırın. Çalışan API konteynerindeki değeri temizlemek için API'yi yeniden oluşturun. Aynı proje ve veri volume'ünü kullanın. Web nginx'in API adresini yeniden çözmesi için web'i yeniden başlatın.
+Open the setup wizard and enter the bootstrap key to create the first administrator. Remove `BOOTSTRAP_TOKEN` from the secret provider after setup. In the same Compose context, remove it from the shell and recreate the API so the running container no longer carries it. Restart web so nginx resolves the API address again. Preserve the JWT and encryption keys and the data volume.
 
 ```sh
 unset BOOTSTRAP_TOKEN
-docker compose --env-file .cache/compose-empty.env up -d --no-deps --force-recreate --wait api
-docker compose --env-file .cache/compose-empty.env restart web
+costcore_compose up -d --no-deps --force-recreate --wait api
+costcore_compose restart web
 curl -fsS "http://127.0.0.1:${WEB_PORT:-18080}/health"
 ```
 
-Arayüzden tekrar giriş yaparak projenin açıldığını doğrulayın. Kurulum anahtarını kaldırmak için JWT veya veri şifreleme anahtarlarını değiştirmeyin.
+Sign in again and confirm the expected project opens.
 
-## Reverse proxy kapısı
+## HTTPS reverse proxy
 
-Reverse proxy, HTTPS alan adını seçilen loopback portuna iletir.
+- Route the HTTPS origin to the selected loopback port. Keep the application port off the public interface.
+- Derive `Host` and forwarding information from the proxy's connection and configuration. Fastify does not use forwarded headers to trust the caller's identity. Check how several users behind the same proxy address share the login rate limit.
+- Use TLS 1.2 or newer, certificate renewal, and restricted private-key permissions. Verify HTTP redirects to HTTPS.
+- Align `/api/` body and timeout limits with the application, including the limits for import and backup. Use the HTTP proxying needed to serve the app.
+- Expose only the necessary liveness information. Protected routes still require the expected authentication and authorization through the proxy.
 
-- Dış proxy, gelen istemci başlıklarına güvenmeden `Host` ve kendi bağlantı bilgisini kullanır. Mevcut Fastify yapılandırması istemci kimliği için yönlendirme başlıklarına güvenmez. Kimlik doğrulama hız sınırlarının kullanıcıları ortak proxy adresinde nasıl etkilediğini pilotta ölçün.
-- HTTP'yi HTTPS'e yönlendirir.
-- WebSocket gerekmiyorsa yalnız normal HTTP/1.1 proxy kullanır.
-- `/api/` için istek gövdesi ve zaman aşımı sınırlarını uygulamanın beklediği değerlerle uyumlu tutar.
-- `/health` için dışarıya yalnız gerekli durum bilgisini açar; yönetim veya yedek uçlarını anonim hale getirmez.
-- TLS 1.2+ ve otomatik sertifika yenileme kullanır; özel anahtar izinleri kısıtlıdır.
+## Pilot acceptance checklist
 
-Gerçek alan adı, sertifika yolu ve firewall ayarları bu belgede örnek olarak bile sabitlenmez.
+- [ ] DNS reaches the intended VPS. HTTPS validates and renewal is configured. HTTP redirects to HTTPS.
+- [ ] The application port is unreachable from the public interface. The HTTPS origin serves the HTML and `/health`.
+- [ ] An unauthenticated `/api/auth/me` request returns `401`.
+- [ ] Synthetic onboarding, sign-in, a project read, and a known financial transaction succeed.
+- [ ] The operator exports a V2 vault and stores its password separately.
+- [ ] Recovery against an in-use disposable target returns `DATABASE_IN_USE`. Offline restore with the target keys succeeds and produces a verified rollback copy.
+- [ ] After restore, the operator signs in again, verifies that old sessions are rejected, checks the audit chain, and reconciles the sample totals. Replaying the original keyed create leaves the debit unchanged.
+- [ ] Access, backup, and restore logs are free of secrets and financial data. The operator verifies the rollback copy and key backup before accepting this deployment for real data.
 
-## İlk pilot kontrol listesi
+## Upgrade and recovery
 
-- [ ] HTTPS sertifikası geçerli ve otomatik yenileme çalışıyor.
-- [ ] HTTP istekleri HTTPS'e yönleniyor.
-- [ ] Uygulama portu dışarıdan erişilemiyor.
-- [ ] `/health` ve ana HTML yükleniyor.
-- [ ] Anonim `/api/` çağrısı 401 veya beklenen yetki cevabını veriyor.
-- [ ] Sentetik ilk kurulum, giriş, proje okuma ve tek mali işlem başarılı.
-- [ ] V2 yedek üretimi sentetik veride başarılı.
-- [ ] Geri yükleme öncesi servis durdurma ve `DATABASE_IN_USE` kilidi doğrulanıyor.
-- [ ] Geri yükleme sonrası oturum iptali, audit zinciri ve mali toplamlar doğrulanıyor.
-- [ ] Gerçek firma verisi taşınmadan önce rollback kopyası ve anahtar yedeği operatör tarafından doğrulanıyor.
-- [ ] Dış erişim, backup ve restore loglarında secret veya mali veri bulunmadığı kontrol ediliyor.
+Before an upgrade, record the current image and volume and verify the V2 backup and its password. Test the exact new revision on a separate synthetic installation. Stop the API and verify the target volume before restoring. Supply the password through stdin and preserve the existing volume and all SQLite sidecars. [Compose offline recovery procedure](README.md#compose-offline-recovery) · [Operations guide](../docs/OPERATIONS.md)
 
-## Geri dönüş
-
-Yükseltmeden önce V2 yedeğini, hedef volume adını ve mevcut imaj sürümünü doğrulayın. [Compose ile çevrimdışı kurtarma](README.md#compose-ile-çevrimdışı-kurtarma) adımlarını aynı proje adıyla izleyin. Geri yükleme, servis durdurulduktan ve hedef volume doğrulandıktan sonra yedek parolasını stdin üzerinden alır. `down -v`, volume silme, `docker system prune` ve manuel SQLite yan dosyası silme kullanılmaz.
-
-Bu runbook canlı deployment kanıtı değildir. Pilot ancak operatör DNS, TLS, firewall, secret store ve sentetik HTTP/backup/restore kontrollerini gerçekleştirdikten sonra kabul edilebilir.
+After an interruption, run the recovery command against the same target and verify its result before restarting. Recheck sign-in, the audit chain, and totals after a rollback. If a schema changed, use the verified previous database with the matching earlier application revision.

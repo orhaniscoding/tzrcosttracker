@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocale } from '../context/LocaleContext.js';
 import { Wallet, AlertTriangle, Clock, TrendingUp, TrendingDown, Users } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext.js';
 
@@ -27,11 +28,13 @@ interface BalanceBarProps {
 
 export const BalanceBar: React.FC<BalanceBarProps> = ({ balance, onOpenPersonContributions }) => {
   const { settings } = useTheme();
+  const { t, intlLocale } = useLocale();
+  const localize = t;
   const currency = balance?.baseCurrency || settings.baseCurrency || 'TRY';
   const period = balance?.cashScopeMode === 'filtered_period';
 
   const formatMoney = (val: number, moneyCurrency = currency) => {
-    return new Intl.NumberFormat('tr-TR', {
+    return new Intl.NumberFormat(intlLocale, {
       style: 'currency',
       currency: moneyCurrency,
       maximumFractionDigits: 2,
@@ -45,12 +48,12 @@ export const BalanceBar: React.FC<BalanceBarProps> = ({ balance, onOpenPersonCon
 
   const transparency = (item: Pick<CurrencyBalance, 'crossScopeWalletNetTotal' | 'inactiveWalletBalanceTotal' | 'inactiveAccountCount'>, code: string) => (
     <div className='text-xs text-slate-600 space-y-1'>
-      {!!item.crossScopeWalletNetTotal && <p>Seçili cüzdan kapsamı dışındaki net hareket ({code}): {item.crossScopeWalletNetTotal > 0 ? '+' : ''}{formatMoney(item.crossScopeWalletNetTotal, code)} (ana tutara eklenmez)</p>}
-      {!!item.inactiveWalletBalanceTotal && <p>Pasif cüzdan bakiyesi ({code}): {formatMoney(item.inactiveWalletBalanceTotal, code)} (ana nakit toplamına dahil değildir)</p>}
-      {!!item.inactiveAccountCount && <p>Pasif hesap sayısı ({code}): {item.inactiveAccountCount}</p>}
+      {!!item.crossScopeWalletNetTotal && <p>{localize("Seçili cüzdan kapsamı dışındaki net hareket (", "Net movement outside selected accounts (")}{code}): {item.crossScopeWalletNetTotal > 0 ? '+' : ''}{formatMoney(item.crossScopeWalletNetTotal, code)} (ana tutara eklenmez)</p>}
+      {!!item.inactiveWalletBalanceTotal && <p>{localize("Pasif cüzdan bakiyesi (", "Inactive account balance (")}{code}): {formatMoney(item.inactiveWalletBalanceTotal, code)}{localize(" (ana nakit toplamına dahil değildir)", " (excluded from the cash total)")}</p>}
+      {!!item.inactiveAccountCount && <p>{localize("Pasif hesap sayısı (", "Inactive accounts (")}{code}): {item.inactiveAccountCount}</p>}
     </div>
   );
-  if (!balance) return <div className='mb-6 text-slate-500' role='status'>Bakiye raporu henüz yok.</div>;
+  if (!balance) return <div className='mb-6 text-slate-500' role='status'>{t('Bakiye raporu henüz yok.', 'No balance report yet.')}</div>;
 
   return (
     <div className="mb-6 space-y-3">
@@ -143,11 +146,11 @@ export const BalanceBar: React.FC<BalanceBarProps> = ({ balance, onOpenPersonCon
         </div>
       </div>
 
-      {(balance.mixedCurrency || !!balance.excludedCurrencies?.length) && <div role='status' className='rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900'>Ana toplamlar yalnızca {currency} içerir; diğer para birimleri ayrı gösterilir.{balance.excludedCurrencies?.length ? ' Hariç tutulanlar: ' + balance.excludedCurrencies.join(', ') : null}</div>}
+      {(balance.mixedCurrency || !!balance.excludedCurrencies?.length) && <div role='status' className='rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900'>{localize("Ana toplamlar yalnızca ", "Main totals are in ")}{currency}{localize(" içerir; diğer para birimleri ayrı gösterilir.", " only. Other currencies are shown separately.")}{balance.excludedCurrencies?.length ? ' Hariç tutulanlar: ' + balance.excludedCurrencies.join(', ') : null}</div>}
       {transparency(balance, currency)}
       {Object.entries(balance.byCurrency ?? {}).filter(([code]) => code !== currency).map(([code, item]) => (
         <section key={code} aria-label={code + ' ayrı bakiye'} className='rounded-xl border border-slate-200 bg-white p-4 text-sm space-y-1'>
-          <h3 className='font-semibold'>{code} — ayrı bakiye</h3>
+          <h3 className='font-semibold'>{code}{localize(" — ayrı bakiye", " — separate balance")}</h3>
           <p>{period ? 'Dönem nakit akışı' : 'Güncel nakit durumu'}: {formatMoney(item.actualCashInHand, code)}</p>
           <p>{period ? 'Seçili dönem kayıtlarında bekleyen borç' : 'Toplam bekleyen / vadeli'}: {formatMoney(item.totalPendingExpense, code)}</p>
           <p>{period ? 'Dönem borçları sonrası net akış' : 'Vade sonrası net durum'}: {formatMoney(item.netPositionAfterDue, code)}</p>
@@ -161,11 +164,11 @@ export const BalanceBar: React.FC<BalanceBarProps> = ({ balance, onOpenPersonCon
           <div className="flex items-center gap-2 text-slate-700">
             <Users className="h-4 w-4 text-blue-600" />
             <span>
-              <strong>Ortak / Şahıs Finansmanı:</strong> {balance.personContributions.length} kişi tarafından toplam{' '}
+              <strong>{localize("Ortak / Şahıs Finansmanı:", "Partner and personal funds:")}</strong> {balance.personContributions.length}{localize(" kişi tarafından toplam", " contributors provided")}{' '}
               <span className="font-bold text-emerald-700 font-mono">
                 {formatMoney(balance.personContributions.reduce((s, p) => s + p.totalAmount, 0))}
               </span>{' '}
-              fon sağlandı. (En yüksek: {balance.personContributions[0].personName} -{' '}
+              {localize("fon sağlandı. (En yüksek: ", "in total. (Largest contribution: ")}{balance.personContributions[0].personName} -{' '}
               {formatMoney(balance.personContributions[0].totalAmount)})
             </span>
           </div>
@@ -173,7 +176,7 @@ export const BalanceBar: React.FC<BalanceBarProps> = ({ balance, onOpenPersonCon
             onClick={onOpenPersonContributions}
             className="text-blue-600 hover:text-blue-800 font-semibold underline flex items-center gap-1"
           >
-            Kişi Dökümünü Gör ›
+            {localize("Kişi Dökümünü Gör ›", "View contributions ›")}
           </button>
         </div>
       )}

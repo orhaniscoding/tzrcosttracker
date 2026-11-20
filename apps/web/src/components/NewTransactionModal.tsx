@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocale } from '../context/LocaleContext.js';
 import { X, Plus, AlertTriangle, UserCheck, Calendar, FileText } from 'lucide-react';
 import type { Category } from '@cost-core/types';
 import { useTheme } from '../context/ThemeContext.js';
@@ -23,6 +24,8 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   selectedProjectId,
 }) => {
   const { settings } = useTheme();
+  const { t, intlLocale } = useLocale();
+  const localize = t;
 
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [title, setTitle] = useState('');
@@ -126,7 +129,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       setDescription('');
       setDuplicateWarning(false);
       onClose();
-    } catch { if (current()) setFormError('Harcama kaydedilemedi. Lütfen yeniden deneyin.'); } finally {
+    } catch { if (current()) setFormError(t('Harcama kaydedilemedi. Lütfen yeniden deneyin.', 'Could not save the expense. Please try again.')); } finally {
       if (current()) setIsSubmitting(false);
     }
   };
@@ -141,8 +144,8 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               <Plus className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Yeni Maliyet & Harcama Kaydı Ekle</h3>
-              <p className="text-[11px] text-slate-500">Tüm veriler sunucuda AES-256-GCM ile anında şifrelenir.</p>
+              <h3 className="text-sm font-bold text-slate-900">{t('Yeni Maliyet & Harcama Kaydı Ekle', 'Add Cost & Expense')}</h3>
+              <p className="text-[11px] text-slate-500">{t('Tüm veriler sunucuda AES-256-GCM ile anında şifrelenir.', 'All data is encrypted on the server with AES-256-GCM.')}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200">
@@ -152,12 +155,12 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
         {/* Mükerrer Kayıt Radarı Bildirimi */}
         {formError && <p role="alert">{formError}</p>}
-        {accountState.error && <p role="alert">Cüzdanlar yüklenemedi: {accountState.error} <button type="button" onClick={() => void accountState.retry()}>Yeniden dene</button></p>}
+        {accountState.error && <p role="alert">{localize("Cüzdanlar yüklenemedi: ", "Could not load accounts: ")}{accountState.error} <button type="button" onClick={() => void accountState.retry()}>Yeniden dene</button></p>}
         {duplicateWarning && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-2 text-xs text-amber-800">
             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
             <span>
-              <strong>🚨 Mükerrer Kayıt Radarı:</strong> Bugün aynı başlık ve tutarda başka bir kayıt zaten mevcut!
+              <strong>{t('🚨 Mükerrer Kayıt Radarı:', '🚨 Possible Duplicate:')}</strong> {t('Bugün aynı başlık ve tutarda başka bir kayıt zaten mevcut!', 'A record with the same title and amount already exists today!')}
             </span>
           </div>
         )}
@@ -167,7 +170,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           {/* 1. Satır: Tarih & Kalem Başlığı */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div className="sm:col-span-4">
-              <label className="block text-slate-600 font-semibold mb-1">Tarih *</label>
+              <label className="block text-slate-600 font-semibold mb-1">{t('Tarih', 'Date')} *</label>
               <input
                 type="date"
                 value={date}
@@ -178,10 +181,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </div>
 
             <div className="sm:col-span-8">
-              <label className="block text-slate-600 font-semibold mb-1">Harcama Başlığı / Kalem *</label>
+              <label className="block text-slate-600 font-semibold mb-1">{t('Harcama Başlığı / Kalem', 'Expense Title / Item')} *</label>
               <input
                 type="text"
-                placeholder="Örn: 35m³ C35 Hazır Beton, Demir İşçiliği, Noter..."
+                placeholder={t('Örn: 35m³ C35 Hazır Beton, Demir İşçiliği, Noter...', 'e.g. 35m³ C35 Ready-Mix Concrete, Steelwork, Notary...')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
@@ -195,7 +198,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div className="sm:col-span-6 flex gap-1.5">
               <div className="flex-1">
-                <label className="block text-slate-600 font-semibold mb-1">Tutar *</label>
+                <label className="block text-slate-600 font-semibold mb-1">{t('Tutar', 'Amount')} *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -207,7 +210,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 />
               </div>
               <div className="w-24">
-                <label className="block text-slate-600 font-semibold mb-1">Para Birimi</label>
+              <label className="block text-slate-600 font-semibold mb-1">{t('Para Birimi', 'Currency')}</label>
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
@@ -221,10 +224,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block text-slate-600 font-semibold mb-1">Tedarikçi / Cari / Alacaklı</label>
+              <label className="block text-slate-600 font-semibold mb-1">{t('Tedarikçi / Cari / Alacaklı', 'Supplier / Account / Payee')}</label>
               <input
                 type="text"
-                placeholder="Örn: Akçansa Beton A.Ş., Demirci Usta..."
+                placeholder={t('Örn: Akçansa Beton A.Ş., Demirci Usta...', 'e.g. Acme Concrete, Steel Contractor...')}
                 value={party}
                 onChange={(e) => setParty(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
@@ -235,7 +238,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           {/* 3. Satır: Ana Kategori ve Alt Kategori */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div className="sm:col-span-6">
-              <label className="block text-slate-600 font-semibold mb-1">Ana Kategori *</label>
+              <label className="block text-slate-600 font-semibold mb-1">{t('Ana Kategori', 'Main Category')} *</label>
               <select
                 value={categoryId}
                 onChange={(e) => {
@@ -245,7 +248,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
                 required
               >
-                <option value="">-- Ana Kategori Seçin --</option>
+                <option value="">{t('-- Ana Kategori Seçin --', '-- Select Main Category --')}</option>
                 {rootCategories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -255,14 +258,14 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block text-slate-600 font-semibold mb-1">Alt Kategori (Opsiyonel)</label>
+              <label className="block text-slate-600 font-semibold mb-1">{t('Alt Kategori (Opsiyonel)', 'Subcategory (Optional)')}</label>
               <select
                 value={subcategoryId}
                 onChange={(e) => setSubcategoryId(e.target.value)}
                 disabled={!categoryId || subCategories.length === 0}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600 disabled:opacity-40"
               >
-                <option value="">-- Alt Kategori --</option>
+                <option value="">{t('-- Alt Kategori --', '-- Subcategory --')}</option>
                 {subCategories.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -275,7 +278,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           {/* 4. Satır: Finansman Modu (Şirket Kasası vs Oto-Kasa Cebinden) */}
           <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-800">Ödeme Kaynağı (Finansman Modu):</span>
+              <span className="font-semibold text-slate-800">{t('Ödeme Kaynağı (Finansman Modu):', 'Payment Source (Funding Mode):')}</span>
               <div className="flex rounded-lg bg-white border border-slate-300 p-0.5">
                 <button
                   type="button"
@@ -286,7 +289,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  🏢 Şirket Kasasından
+                  {localize("🏢 Şirket Kasasından", "🏢 Company funds")}
                 </button>
                 <button
                   type="button"
@@ -305,17 +308,17 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             {paymentSource === 'company_account' && accounts.length > 0 && (
               <div className="pt-2 border-t border-slate-200">
                 <label className="block text-slate-700 font-semibold mb-1">
-                  Ödemenin Çıktığı Hesap / Cüzdan (Reel Likidite Düşümü)
+                  {localize("Ödemenin Çıktığı Hesap / Cüzdan (Reel Likidite Düşümü)", "Account used for payment")}
                 </label>
                 <select
                   value={accountFromId}
                   onChange={(e) => setAccountFromId(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none"
                 >
-                  <option value="">-- Cüzdan Seçiniz (Otomatik Düşüm Yapılmaz) --</option>
+                  <option value="">{t('-- Cüzdan Seçiniz (Otomatik Düşüm Yapılmaz) --', '-- Select Wallet (No Automatic Deduction) --')}</option>
                   {accounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
-                      {acc.type === 'bank' ? '🏦' : acc.type === 'credit_card' ? '💳' : '💵'} {acc.name} - Güncel Bakiye: {acc.balance.toLocaleString('tr-TR')} {acc.currency}
+                      {acc.type === 'bank' ? '🏦' : acc.type === 'credit_card' ? '💳' : '💵'} {acc.name} - {t('Güncel Bakiye:', 'Current Balance:')} {acc.balance.toLocaleString(intlLocale)} {acc.currency}
                     </option>
                   ))}
                 </select>
@@ -325,18 +328,18 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             {paymentSource === 'person_out_of_pocket' && (
               <div className="pt-2 border-t border-slate-200">
                 <label className="block text-emerald-800 font-semibold mb-1">
-                  Harcamayı Kendi Cebinden Ödeyen Ortak / Personel *
+                  {localize("Harcamayı Kendi Cebinden Ödeyen Ortak / Personel *", "Partner or employee who paid out of pocket *")}
                 </label>
                 <input
                   type="text"
-                  placeholder="Örn: Yılmaz Sağır, Ahmet Usta..."
+                  placeholder={t('Örn: Yılmaz Sağır, Ahmet Usta...', 'e.g. Jane Doe, Alex Smith...')}
                   value={payerPersonName}
                   onChange={(e) => setPayerPersonName(e.target.value)}
                   className="w-full bg-white border border-emerald-400 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none"
                   required
                 />
                 <p className="text-[11px] text-emerald-700 mt-1">
-                  💡 Bu seçenek işaretlendiğinde sistem otomatik olarak Kasa'ya bu kişinin alacağı olarak çift taraflı mahsup fişi kesecektir.
+                  {localize("💡 Bu seçenek işaretlendiğinde sistem otomatik olarak Kasa'ya bu kişinin alacağı olarak çift taraflı mahsup fişi kesecektir.", "This option records the out-of-pocket payment and the amount owed to the person.")}
                 </p>
               </div>
             )}
@@ -345,21 +348,21 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           {/* 5. Satır: Ödeme Türü ve Ödeme Durumu (Vadeli mi?) */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div className="sm:col-span-6">
-              <label className="block text-slate-600 font-semibold mb-1">Ödeme Yöntemi</label>
+              <label className="block text-slate-600 font-semibold mb-1">{t('Ödeme Yöntemi', 'Payment Method')}</label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:border-blue-600"
               >
-                <option value="Banka">Banka Havalesi / EFT</option>
-                <option value="Nakit">Elden Nakit</option>
-                <option value="Kredi Kartı">Kredi Kartı</option>
-                <option value="Çek / Senet">Çek / Senet (Vadeli)</option>
+                <option value="Banka">{t('Banka Havalesi / EFT', 'Bank Transfer')}</option>
+                <option value="Nakit">{t('Elden Nakit', 'Cash')}</option>
+                <option value="Kredi Kartı">{t('Kredi Kartı', 'Credit Card')}</option>
+                <option value="Çek / Senet">{t('Çek / Senet (Vadeli)', 'Check / Promissory Note (Deferred)')}</option>
               </select>
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block text-slate-600 font-semibold mb-1">Ödeme Durumu</label>
+              <label className="block text-slate-600 font-semibold mb-1">{t('Ödeme Durumu', 'Payment Status')}</label>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -378,7 +381,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="flex-1 bg-slate-50 border border-amber-300 rounded-lg px-2.5 py-2 text-slate-900 focus:outline-none"
-                    title="Vade Tarihi"
+                    title={t('Vade Tarihi', 'Due Date')}
                   />
                 )}
               </div>
@@ -387,10 +390,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
           {/* 6. Satır: Açıklama / Not */}
           <div>
-            <label className="block text-slate-600 font-semibold mb-1">Açıklama / Fatura No / Şantiye Notu</label>
+            <label className="block text-slate-600 font-semibold mb-1">{t('Açıklama / Fatura No / Şantiye Notu', 'Description / Invoice No. / Site Note')}</label>
             <textarea
               rows={2}
-              placeholder="İrsaliye no, blok/kat bilgisi, sözleşme detayı..."
+              placeholder={t('İrsaliye no, blok/kat bilgisi, sözleşme detayı...', 'Delivery note, block/floor, contract details...')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
@@ -404,7 +407,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               onClick={onClose}
               className="px-4 py-2.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold transition"
             >
-              Vazgeç
+              {localize("Vazgeç", "Cancel")}
             </button>
             <button
               type="submit"
