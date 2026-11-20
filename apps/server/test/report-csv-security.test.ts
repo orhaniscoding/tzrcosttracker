@@ -1,0 +1,56 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import type { FastifyInstance } from 'fastify';
+import * as XLSX from 'xlsx';
+import { buildApp } from '../src/app.js';
+const SECRET = { jwtSecret: 'test-jwt-secret-very-long-and-secure-1234', masterKey: 'test-master-key-32-bytes-long-1234', blindIndexPepper: 'test-pepper-for-blind-index-1234' };
+const PASSWORD = 'Synthetic-Pass-1234';
+const Q = String.fromCharCode(34);
+describe('CSV export formula injection', () => {
+  let app: FastifyInstance; let token = ''; let catDanger = ''; let catPlain = '';
+  async function addTx(payload: any) { const r = await app.inject({ method: 'POST', url: '/api/transactions', headers: { authorization: 'Bearer ' + token }, payload }); expect(r.statusCode).toBe(201); return JSON.parse(r.body); }
+  beforeAll(async () => {
+    app = await buildApp({ config: SECRET, dbPath: ':memory:' }); await app.ready();
+    await (app as any).userRepo.createUser({ username: 'csv_admin', email: 'csv@example.test', fullName: 'CSV Admin', password: PASSWORD, role: 'admin' }, SECRET.masterKey);
+    const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { usernameOrEmail: 'csv_admin', password: PASSWORD } }); expect(login.statusCode).toBe(200); token = JSON.parse(login.body).token;
+    catDanger = (await (app as any).categoryRepo.createCategory({ name: '=Danger; ' + Q + 'cat' + Q })).id;
+    catPlain = (await (app as any).categoryRepo.createCategory({ name: 'PlainCat' })).id;
+    await addTx({ type: 'income', date: '2026-01-10T10:00:00.000Z', amount: 123.5, currency: '=TX', categoryId: catDanger, title: '=2+5; ' + Q + 'x' + Q + '\r\nline2', party: '\t@party', description: ' \uFF1Dfull', isPaid: true });
+    await addTx({ type: 'income', date: '2026-01-11T10:00:00.000Z', amount: 42, currency: 'USD', categoryId: catPlain, title: '   +SUM(1,2)', party: '\u0001-party', description: '\r\n@desc', isPaid: true });
+    await addTx({ type: 'income', date: '2026-01-12T10:00:00.000Z', amount: 7, currency: 'EUR', categoryId: catPlain, title: 'Total = A+B; ' + Q + 'note' + Q + '\r\nsecond', party: 'Plain - text', description: 'Price -5 and @home inside', isPaid: true });
+    await addTx({ type: 'income', date: '2026-01-13T10:00:00.000Z', amount: 9, currency: 'TRY', categoryId: catPlain, title: '\uFF0Badd', party: '\uFF0Dminus', description: '\uFF20at', isPaid: true });
+  });
+  afterAll(async () => { await app.close(); });
+  it('neutralizes dangerous text, quotes every text field and keeps amounts numeric', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/reports/export/csv', headers: { authorization: 'Bearer ' + token } });
+    expect(res.statusCode).toBe(200);
+    expect(String(res.headers['content-type'])).toContain('text/csv');
+    expect(String(res.headers['content-disposition'])).toContain('attachment;');
+    expect(res.body.charCodeAt(0)).toBe(0xFEFF);
+    expect(res.body).toContain(Q + 'Metin: =2+5; ' + Q + Q + 'x' + Q + Q + '\r\nline2' + Q);
+    const wb = XLSX.read(res.body, { type: 'string', FS: ';' });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true }) as any[][];
+    expect(rows).toHaveLength(5);
+    expect(rows[0][0]).toBe('\uFEFF' + 'Tarih');
+    const byAmount = (n: number) => rows.find((r) => r[2] === n);
+    const r1 = byAmount(123.5)!; expect(typeof r1[2]).toBe('number');
+    expect(res.body).toContain(Q + '2026-01-10' + Q); expect(r1[0]).toBe(46032); expect(r1[1]).toBe('Metin: =2+5; ' + Q + 'x' + Q + '\r\nline2');
+    expect(r1[3]).toBe('Metin: =TX'); expect(r1[4]).toBe('Metin: =Danger; ' + Q + 'cat' + Q);
+    expect(r1[5]).toBe('Metin: \t@party'); expect(r1[6]).toBe('Metin:  \uFF1Dfull');
+    const r2 = byAmount(42)!; expect(r2[1]).toBe('Metin:    +SUM(1,2)'); expect(r2[5]).toBe('Metin: \u0001-party'); expect(r2[6]).toBe('Metin: \r\n@desc');
+    const r3 = byAmount(7)!; expect(r3[1]).toBe('Total = A+B; ' + Q + 'note' + Q + '\r\nsecond'); expect(r3[3]).toBe('EUR'); expect(r3[5]).toBe('Plain - text'); expect(r3[6]).toBe('Price -5 and @home inside');
+    const r4 = byAmount(9)!; expect(r4[1]).toBe('Metin: \uFF0Badd'); expect(r4[5]).toBe('Metin: \uFF0Dminus'); expect(r4[6]).toBe('Metin: \uFF20at');
+    const stored = (app as any).transactionRepo.listTransactions({}, SECRET.masterKey, SECRET.blindIndexPepper) as any[];
+    const titles = stored.map((t) => t.title);
+    expect(titles).toContain('=2+5; ' + Q + 'x' + Q + '\r\nline2'); expect(titles).toContain('   +SUM(1,2)');
+    expect(titles.some((t: string) => t.startsWith('Metin:'))).toBe(false);
+    expect(stored.map((t) => t.currency)).toContain('=TX');
+    await addTx({ type: 'income', date: '2026-01-14T10:00:00.000Z', amount: 11, currency: 'USD', categoryId: catPlain, title: '\u2066=1+1', party: String.fromCharCode(39) + '=1+1', description: 'plain', isPaid: true });
+    const res2 = await app.inject({ method: 'GET', url: '/api/reports/export/csv', headers: { authorization: 'Bearer ' + token } });
+    expect(res2.statusCode).toBe(200);
+    const wb2 = XLSX.read(res2.body, { type: 'string', FS: ';' });
+    const rows2 = XLSX.utils.sheet_to_json(wb2.Sheets[wb2.SheetNames[0]], { header: 1, raw: true }) as any[][];
+    const r5 = rows2.find((r) => r[2] === 11)!;
+    expect(r5[1]).toBe('Metin: \u2066=1+1');
+    expect(r5[5]).toBe('Metin: ' + String.fromCharCode(39) + '=1+1');
+  });
+});

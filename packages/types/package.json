@@ -1,0 +1,20 @@
+{
+  "license": "Apache-2.0",
+  "name": "@cost-core/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "vitest": "4.1.12"
+  }
+}

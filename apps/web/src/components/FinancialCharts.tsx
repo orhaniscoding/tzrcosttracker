@@ -1,0 +1,67 @@
+import React from 'react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
+import type { Transaction, Category } from '@cost-core/types';
+import { useTheme } from '../context/ThemeContext.js';
+import { computeReportFinance } from '../report-finance.js';
+
+interface FinancialChartsProps {
+  transactions: Transaction[];
+  categories: Category[];
+  baseCurrency?: string;
+  isLoading?: boolean;
+}
+
+const axisNumber = new Intl.NumberFormat('tr-TR', { notation: 'compact', maximumSignificantDigits: 3 });
+const axisExtreme = new Intl.NumberFormat('tr-TR', { notation: 'scientific', maximumSignificantDigits: 3 });
+const formatAxisTick = (value: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  const magnitude = Math.abs(value);
+  return (magnitude >= 1e15 || (magnitude > 0 && magnitude < 0.01) ? axisExtreme : axisNumber).format(value);
+};
+
+export const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, categories, baseCurrency, isLoading = false }) => {
+  const { settings } = useTheme();
+  const base = baseCurrency || settings.baseCurrency || 'TRY';
+  if (isLoading) return <div role='status'>Mali grafikler yükleniyor...</div>;
+  const overall = computeReportFinance(transactions, base);
+  const currencies = [base, ...Object.keys(overall.byCurrency).filter(code => code !== base)];
+  const money = (value: number, code: string) => `${value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${code}`;
+  return <div className='min-w-0 max-w-full space-y-6'>
+    <p>Yüklenen kayıtlardan hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.</p>
+    <p>Baz para birimi özeti yabancı para birimlerini içermez; dönüşüm yapılmaz.</p>
+    {currencies.map(code => {
+      const records = transactions.filter(t => t.currency === code);
+      const totals = computeReportFinance(records, code);
+      const months = Array.from(new Set(records.map(t => t.date.slice(0, 7)).filter(month => /^\d{4}-\d{2}$/.test(month)))).sort();
+      const monthlyData = months.map(month => {
+        const result = computeReportFinance(records.filter(t => t.date.slice(0, 7) === month), code);
+        return { month, income: result.totalIncome, expense: result.totalExpense, net: result.netBalance, cash: result.cashFlowNet, count: result.transactionCount };
+      });
+      const ids = Array.from(new Set(records.filter(t => t.type === 'expense').map(t => t.categoryId)));
+      const categoryData = ids.flatMap(id => {
+        const category = categories.find(c => c.id === id);
+        const result = computeReportFinance(records.filter(t => t.type === 'expense' && t.categoryId === id), code);
+        if (result.transactionCount === 0) return [];
+        const value = result.totalExpense;
+        return { id, name: category?.name || 'Diğer', value, share: totals.totalExpense === 0 ? 0 : value / totals.totalExpense * 100, color: category?.color || '#64748b' };
+      });
+      const format = (value: number) => money(Number(value), code);
+      return <section key={code} aria-label={`Mali grafikler ${code}`} className='min-w-0 max-w-full space-y-4 border rounded-xl p-4'>
+        <h2 className='font-bold text-lg'>{code}{code === base ? ' (baz para birimi)' : ''}</h2>
+        <dl className='flex flex-wrap gap-4'>
+          <div><dt>Tanınan gelir</dt><dd>{format(totals.totalIncome)}</dd></div>
+          <div><dt>Tanınan gider</dt><dd>{format(totals.totalExpense)}</dd></div>
+          <div><dt>Faaliyet neti</dt><dd>{format(totals.netBalance)}</dd></div>
+          <div><dt>Net şirket nakit akışı</dt><dd>{format(totals.cashFlowNet)}</dd></div>
+          <div><dt>Tanınan işlem adedi</dt><dd>{totals.transactionCount}</dd></div>
+        </dl>
+        <h3 className='font-semibold'>Aylık mali hareketler</h3>
+        {monthlyData.length === 0 ? <p>Grafik için veri bulunmuyor.</p> : <div className='h-64 w-full min-w-0'><ResponsiveContainer width='100%' height='100%'><BarChart data={monthlyData}><XAxis dataKey='month' /><YAxis width={90} tick={{ fontSize: 10 }} tickMargin={4} tickFormatter={formatAxisTick} /><Tooltip formatter={value => typeof value === 'number' && Number.isFinite(value) ? format(value) : '—'} /><Legend /><Bar dataKey='income' name='Tanınan gelir' fill='#16a34a' /><Bar dataKey='expense' name='Tanınan gider' fill='#dc2626' /></BarChart></ResponsiveContainer></div>}
+        <div role='region' aria-label={`${code} aylık mali hareketler tablosu`} tabIndex={0} className='overflow-x-auto max-w-full min-w-0'><table className='min-w-[760px] w-full text-left'><caption>{code} aylık mali hareketler</caption><thead><tr>{['Ay', 'Tanınan gelir', 'Tanınan gider', 'Faaliyet neti', 'Net şirket nakit akışı', 'Tanınan işlem adedi'].map(label => <th scope='col' key={label} className='p-2'>{label}</th>)}</tr></thead><tbody>{monthlyData.map(item => <tr key={item.month} className='border-t'><td className='p-2'>{item.month}</td><td className='p-2'>{format(item.income)}</td><td className='p-2'>{format(item.expense)}</td><td className='p-2'>{format(item.net)}</td><td className='p-2'>{format(item.cash)}</td><td className='p-2'>{item.count}</td></tr>)}</tbody></table></div>
+        <h3 className='font-semibold'>Gider dağılımı payı</h3>
+        {categoryData.length === 0 ? <p>Gider dağılımı için veri bulunmuyor.</p> : <><div className='h-64 w-full min-w-0'><ResponsiveContainer width='100%' height='100%'><PieChart><Pie data={categoryData} dataKey='value' nameKey='name' cx='50%' cy='50%' outerRadius={80}>{categoryData.map((item, index) => <Cell key={index} fill={item.color} />)}</Pie><Tooltip formatter={value => typeof value === 'number' && Number.isFinite(value) ? format(value) : '—'} /></PieChart></ResponsiveContainer></div><ul aria-label={`${code} gider dağılımı açıklaması`} className='space-y-1'>{categoryData.map((item, index) => <li key={index} className='flex min-w-0 items-start gap-2'><span aria-hidden='true' style={{ backgroundColor: item.color }} className='mt-1 inline-block h-3 w-3 shrink-0' /><span className='min-w-0 break-all'>{item.name}</span></li>)}</ul></>}
+        <div role='region' aria-label={`${code} gider dağılımı tablosu`} tabIndex={0} className='overflow-x-auto max-w-full min-w-0'><table className='min-w-[480px] w-full text-left'><caption>Gider dağılımı payı</caption><thead><tr><th scope='col' className='p-2'>Kategori</th><th scope='col' className='p-2'>Tanınan gider</th><th scope='col' className='p-2'>Pay</th></tr></thead><tbody>{categoryData.map((item, index) => <tr key={index} className='border-t'><td className='p-2 break-words'>{item.name}</td><td className='p-2'>{format(item.value)}</td><td className='p-2'>{item.share.toFixed(1)}%</td></tr>)}</tbody></table></div>
+      </section>;
+    })}
+  </div>;
+};

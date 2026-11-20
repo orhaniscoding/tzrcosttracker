@@ -1,0 +1,29 @@
+{
+  "license": "Apache-2.0",
+  "name": "@cost-core/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "node --watch dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cost-core/crypto": "workspace:*",
+    "@cost-core/database": "workspace:*",
+    "@cost-core/types": "workspace:*",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/jwt": "10.2.7",
+    "@fastify/rate-limit": "11.2.2",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.2.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "vitest": "4.1.12"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "license": "Apache-2.0",
+  "name": "cost-core",
+  "private": true,
+  "packageManager": "pnpm@12.16.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.5",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4",
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2",
+    "vitest": "4.1.12"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

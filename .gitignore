@@ -1,0 +1,57 @@
+.mini-swe-agent/
+node_modules/
+dist/
+build/
+.turbo/
+.cache/
+coverage/
+*.log
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+target/
+.DS_Store
+Thumbs.db
+# Release safety: local environment files and named synthetic examples
+.env*
+!.env.example
+!.env.sample
+!.env.template
+!.env.*.example
+!.env.*.sample
+!.env.*.template
+
+# User databases and SQLite sidecars
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+
+# Reports and task outputs
+Raporlar/
+/native-output/
+
+# Local tools, recovery material and credentials
+.ecc/
+.codex/
+.agents/
+.opencode/
+.jeikcode/
+.serena/
+.playwright-mcp/
+.pnpm-store/
+*.tzrvault
+*.vault
+*.pem
+*.key
+*.pfx
+*.p12

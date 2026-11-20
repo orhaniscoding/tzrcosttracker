@@ -1,0 +1,41 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    init: true
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4000
+      DB_PATH: /data/cost-core.sqlite
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      MASTER_KEY: ${MASTER_KEY:?MASTER_KEY is required}
+      BLIND_INDEX_PEPPER: ${BLIND_INDEX_PEPPER:?BLIND_INDEX_PEPPER is required}
+      BOOTSTRAP_TOKEN: ${BOOTSTRAP_TOKEN:-}
+    volumes:
+      - cost-core-data:/data
+    expose:
+      - 4000
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    init: true
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${WEB_PORT:-18080}:80
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O /dev/null http://127.0.0.1/ || exit 1']
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+volumes:
+  cost-core-data:

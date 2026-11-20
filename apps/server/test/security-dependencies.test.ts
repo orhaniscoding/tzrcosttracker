@@ -1,0 +1,11 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import type { FastifyInstance } from 'fastify';
+import * as XLSX from 'xlsx';
+import { buildApp } from '../src/app.js';
+describe('upgraded JWT and workbook APIs',()=>{let app:FastifyInstance;
+beforeAll(async()=>{app=await buildApp({config:{jwtSecret:'synthetic-jwt-secret-for-tests-1234567890',masterKey:'synthetic-master-key-for-tests-123456',blindIndexPepper:'synthetic-pepper-for-tests-1234567890'},dbPath:':memory:'});await app.ready();});
+afterAll(async()=>{await app.close();});
+it('signs and verifies a synthetic JWT and rejects a tampered one',()=>{const token=app.jwt.sign({id:'user-1',username:'synthetic',role:'admin'});const payload=app.jwt.verify(token) as any;expect(payload.username).toBe('synthetic');expect(payload.role).toBe('admin');expect(()=>app.jwt.verify(token+'x')).toThrow();});
+it('returns 401 for an invalid JWT on a protected route',async()=>{const res=await app.inject({method:'GET',url:'/api/projects',headers:{authorization:'Bearer invalid.token.value'}});expect(res.statusCode).toBe(401);});
+it('round-trips a synthetic workbook in memory',()=>{const ws=XLSX.utils.aoa_to_sheet([['title','amount'],['Synthetic',42]]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Data');const buf=XLSX.write(wb,{type:'buffer',bookType:'xlsx'}) as Buffer;const back=XLSX.read(buf,{type:'buffer'});const rows=XLSX.utils.sheet_to_json(back.Sheets[back.SheetNames[0]],{header:1});expect(rows).toEqual([['title','amount'],['Synthetic',42]]);});
+});

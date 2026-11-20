@@ -1,0 +1,19 @@
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { loadConfig } from '../src/config.js';
+import { buildApp } from '../src/app.js';
+const VALID={jwtSecret:'synthetic-jwt-secret-for-tests-123456',masterKey:'synthetic-master-key-for-tests-123456',blindIndexPepper:'synthetic-blind-pepper-for-test-123456'};
+const KEYS=['JWT_SECRET','MASTER_KEY','BLIND_INDEX_PEPPER','PORT','HOST','DB_PATH','BOOTSTRAP_TOKEN'];
+function clearEnv(){for(const k of KEYS)delete process.env[k];}
+function validEnv(){vi.stubEnv('JWT_SECRET',VALID.jwtSecret);vi.stubEnv('MASTER_KEY',VALID.masterKey);vi.stubEnv('BLIND_INDEX_PEPPER',VALID.blindIndexPepper);}
+function msg(fn:()=>unknown):string{try{fn();}catch(e){return e instanceof Error?e.message:String(e);}throw new Error('expected throw');}
+describe('config validation',()=>{afterEach(()=>{vi.unstubAllEnvs();clearEnv();});
+it('rejects missing secrets with sanitized names',()=>{clearEnv();expect(msg(()=>loadConfig())).toMatch(/JWT_SECRET/);validEnv();delete process.env.MASTER_KEY;expect(msg(()=>loadConfig())).toMatch(/MASTER_KEY/);validEnv();delete process.env.BLIND_INDEX_PEPPER;expect(msg(()=>loadConfig())).toMatch(/BLIND_INDEX_PEPPER/);});
+it('rejects short blank whitespace and placeholder secrets without leaking values',()=>{clearEnv();const s='UNIQUE-SHORT-SECRET';const m=msg(()=>loadConfig({...VALID,jwtSecret:s}));expect(m).toMatch(/JWT_SECRET/);expect(m).not.toContain(s);expect(msg(()=>loadConfig({...VALID,masterKey:''}))).toMatch(/MASTER_KEY/);expect(msg(()=>loadConfig({...VALID,blindIndexPepper:'    '}))).toMatch(/BLIND_INDEX_PEPPER/);const p='placeholder-UNIQUE-VALUE-1234567890';const pm=msg(()=>loadConfig({...VALID,jwtSecret:p}));expect(pm).toMatch(/JWT_SECRET/);expect(pm).not.toContain(p);expect(msg(()=>loadConfig({...VALID,masterKey:'change-me-change-me-change-me-12'}))).toMatch(/MASTER_KEY/);});
+it('accepts valid complete environment',()=>{clearEnv();validEnv();vi.stubEnv('PORT','4567');vi.stubEnv('HOST','127.0.0.1');vi.stubEnv('DB_PATH',':memory:');const c=loadConfig();expect(c).toMatchObject({...VALID,port:4567,host:'127.0.0.1',dbPath:':memory:'});});
+it('accepts explicit valid overrides when env is absent and supplies safe defaults',()=>{clearEnv();const c=loadConfig(VALID);expect(c.jwtSecret).toBe(VALID.jwtSecret);expect(c.port).toBe(4000);expect(c.host).toBe('127.0.0.1');expect(c.bootstrapToken).toBeUndefined();});
+it('preserves optional bootstrap token semantics',()=>{clearEnv();expect(loadConfig(VALID).bootstrapToken).toBeUndefined();expect(loadConfig({...VALID,bootstrapToken:'short'}).bootstrapToken).toBe('short');});
+it('rejects invalid port formats and ranges',()=>{clearEnv();validEnv();for(const p of ['abc','12.5','0','65536','-1','','4000x','1e3']){vi.stubEnv('PORT',p);expect(msg(()=>loadConfig())).toMatch(/PORT/);}for(const p of [0,65536,3.14,NaN,Infinity]){clearEnv();expect(msg(()=>loadConfig({...VALID,port:p}))).toMatch(/PORT/);}});
+it('rejects blank host and trims valid host',()=>{clearEnv();validEnv();vi.stubEnv('HOST','   ');expect(msg(()=>loadConfig())).toMatch(/HOST/);clearEnv();expect(msg(()=>loadConfig({...VALID,host:' '}))).toMatch(/HOST/);expect(loadConfig({...VALID,host:' 127.0.0.1 '}).host).toBe('127.0.0.1');});
+it('buildApp uses explicit config with no env',async()=>{clearEnv();const app=await buildApp({config:{...VALID},dbPath:':memory:'});const r=await app.inject({method:'GET',url:'/health'});expect(r.statusCode).toBe(200);await app.close();});
+it('buildApp rejects invalid config before database use',async()=>{clearEnv();const bad='UNIQUE-BAD-BUILD-SECRET';await expect(buildApp({config:{...VALID,jwtSecret:bad},dbPath:':memory:'})).rejects.toThrow(/JWT_SECRET/);try{await buildApp({config:{...VALID,jwtSecret:bad},dbPath:':memory:'});}catch(e){expect(String(e)).not.toContain(bad);}});
+});
