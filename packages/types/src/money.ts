@@ -2,6 +2,40 @@ export type MoneyPolicy = { readonly version: string; readonly exponents: Readon
 export type MoneyV1 = { readonly version: 1; readonly policyVersion: string; readonly currency: string; readonly exponent: number; readonly minor: string };
 export type RationalRate = { readonly numerator: string; readonly denominator: string };
 
+export class LedgerConversionError extends RangeError {}
+
+/** Converts the current ledger's two-place amounts using a decimal rate.
+ * Round once to the nearest cent, with ties rounded away from zero.
+ */
+export function convertLedgerAmount(amount: number, exchangeRate: number): number {
+  let sourceCents: bigint;
+  try { sourceCents = decimalMinor(amount, 2); }
+  catch { throw new LedgerConversionError('Invalid ledger amount.'); }
+  const safeCents = BigInt(Number.MAX_SAFE_INTEGER);
+  if (sourceCents < -safeCents || sourceCents > safeCents || !Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+    throw new LedgerConversionError('Ledger amount or exchange rate is outside the supported range.');
+  }
+  const match = /^(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/.exec(String(exchangeRate))!;
+  const fraction = match[2] ?? '';
+  const shift = Number(match[3] ?? 0) - fraction.length;
+  const coefficient = BigInt(match[1]! + fraction);
+  const divisor = shift < 0 ? 10n ** BigInt(-shift) : 1n;
+  const multiplier = shift > 0 ? 10n ** BigInt(shift) : 1n;
+  const scaled = (sourceCents < 0 ? -sourceCents : sourceCents) * coefficient * multiplier;
+  const rounded = (scaled * 2n + divisor) / (2n * divisor);
+  if (rounded > safeCents) throw new LedgerConversionError('Converted ledger amount is outside the supported range.');
+  if (rounded === 0n) return 0;
+  const result = Number(sourceCents < 0 ? -rounded : rounded) / 100;
+  if (decimalMinor(result, 2) !== (sourceCents < 0 ? -rounded : rounded)) throw new LedgerConversionError('Converted ledger amount cannot be represented.');
+  return result;
+}
+
+export function convertPositiveLedgerAmount(amount: number, exchangeRate: number): number {
+  const converted = convertLedgerAmount(amount, exchangeRate);
+  if (converted <= 0) throw new LedgerConversionError('Converted ledger amount must be positive.');
+  return converted;
+}
+
 function full(pattern: RegExp, value: string): boolean {
   const match = pattern.exec(value);
   return match !== null && match[0] === value;

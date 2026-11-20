@@ -122,7 +122,7 @@ For a retried create, reuse the same authenticated user, exact request body, and
 | --- | --- | --- |
 | `GET /api/reports/balance` | Authenticated | Returns scoped balance data. Supports the validated date and project filters. |
 | `GET /api/reports/summary` | Authenticated | Returns scoped financial summary data. |
-| `GET /api/reports/export/csv` | Authenticated | Streams a scoped CSV report. Treat the response as financial data and store it securely. |
+| `GET /api/reports/export/csv` | Authenticated | Builds and downloads a scoped CSV report. The export builds the result in memory. It rejects more than 10,000 records with `413 CSV_EXPORT_LIMIT_EXCEEDED`; narrow the date range and retry. Treat the response as financial data and store it securely. |
 | `GET /api/audit` | Fresh admin | Lists audit events. |
 | `GET /api/audit/verify` | Fresh admin | Verifies the audit chain and reports whether the chain is intact. |
 
@@ -142,8 +142,8 @@ Import requests are size- and workbook-bounded. Use synthetic workbooks first an
 
 | Method and path | Auth/role | Purpose |
 | --- | --- | --- |
-| `POST /api/backup/export` | Authenticated; backup permission enforced | Exports the legacy partial backup format. Use V2 for a complete supported database export. |
-| `POST /api/backup/import` | Authenticated; backup permission enforced | Imports the supported legacy format under its validation rules. |
+| `POST /api/backup/export` | Fresh admin | Retired. Returns `410 BACKUP_V1_RETIRED`. |
+| `POST /api/backup/import` | Fresh admin | Retired. Returns `410 BACKUP_V1_RETIRED` without changing data. |
 | `POST /api/backup/export-v2` | Fresh admin | Creates a password-protected V2 vault. The password is sent in the request body; use HTTPS and do not log it. |
 
 V2 restore is deliberately offline. Run the compiled `recovery-cli.js` with an absolute database path, a byte limit, and an absolute vault path. Provide the backup password through stdin. Stop the API first, verify the target volume and SQLite sidecars, and retain the rollback copy reported by the command. See [the operations guide](OPERATIONS.md) and [the install guide](INSTALL.md).

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   X,
   UploadCloud,
@@ -21,6 +21,36 @@ interface UniversalExcelModalProps {
   selectedProjectId?: string | null;
 }
 
+type ImportSource = { base64: string; sheetsUrl?: never } | { sheetsUrl: string; base64?: never };
+type ImportMapping = {
+  dateCol: number; titleCol: number; amountCol: number; categoryCol: number;
+  subCategoryCol: number; partyCol: number; isPaidCol: number; payerPersonCol: number;
+  currencyCol: number; accountFromCol: number; exchangeRateCol: number;
+};
+
+export function mapImportHeaders(headers: string[]): ImportMapping {
+  const mapping: ImportMapping = { dateCol: -1, titleCol: -1, amountCol: -1, categoryCol: -1, subCategoryCol: -1, partyCol: -1, isPaidCol: -1, payerPersonCol: -1, currencyCol: -1, accountFromCol: -1, exchangeRateCol: -1 };
+  headers.forEach((header, idx) => {
+    const h = String(header).toLowerCase();
+    if (h.includes('tarih') || h.includes('date')) mapping.dateCol = idx;
+    if (h.includes('başlık') || h.includes('kalem') || h.includes('açıklama') || h.includes('title')) mapping.titleCol = idx;
+    if (h.includes('tutar') || h.includes('bedel') || h.includes('fiyat') || h.includes('amount')) mapping.amountCol = idx;
+    if (h.includes('kategori') || h.includes('grup') || h.includes('category')) mapping.categoryCol = idx;
+    if (h.includes('alt') || h.includes('kırılım')) mapping.subCategoryCol = idx;
+    if (h.includes('cari') || h.includes('tedarikçi') || h.includes('firma') || h.includes('party')) mapping.partyCol = idx;
+    if (h.includes('durum') || h.includes('ödendi') || h.includes('status') || h === 'paid') mapping.isPaidCol = idx;
+    if (h.includes('şahıs') || h.includes('cebinden')) mapping.payerPersonCol = idx;
+  });
+  return mapping;
+}
+
+export function validateImportColumnMapping(mapping: ImportMapping, columnCount: number): keyof ImportMapping | null {
+  for (const key of ['dateCol', 'titleCol', 'amountCol'] as const) {
+    if (!Number.isInteger(mapping[key]) || mapping[key] < 0 || mapping[key] >= columnCount) return key;
+  }
+  return null;
+}
+
 export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
   isOpen,
   onClose,
@@ -29,7 +59,6 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
 }) => {
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<'excel' | 'google_sheets'>('excel');
-  const [fileBase64, setFileBase64] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [sheetsUrl, setSheetsUrl] = useState('');
 
@@ -39,14 +68,21 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
   const [selectedSheetIndex, setSelectedSheetIndex] = useState(0);
 
   // Sütun Eşleştirmeleri (Mapping)
-  const [dateCol, setDateCol] = useState<number>(0);
-  const [titleCol, setTitleCol] = useState<number>(1);
-  const [amountCol, setAmountCol] = useState<number>(2);
+  const [dateCol, setDateCol] = useState<number>(-1);
+  const [titleCol, setTitleCol] = useState<number>(-1);
+  const [amountCol, setAmountCol] = useState<number>(-1);
   const [categoryCol, setCategoryCol] = useState<number>(-1);
   const [subCategoryCol, setSubCategoryCol] = useState<number>(-1);
   const [partyCol, setPartyCol] = useState<number>(-1);
   const [isPaidCol, setIsPaidCol] = useState<number>(-1);
   const [payerPersonCol, setPayerPersonCol] = useState<number>(-1);
+  const [currencyCol, setCurrencyCol] = useState(-1);
+  const [accountFromCol, setAccountFromCol] = useState(-1);
+  const [exchangeRateCol, setExchangeRateCol] = useState(-1);
+  const [skippedRows, setSkippedRows] = useState<Array<{ rowNumber: number; code: string }>>([]);
+  const exporting = useRef(false);
+  const analysisGeneration = useRef(0);
+  const [analyzedSource, setAnalyzedSource] = useState<ImportSource | null>(null);
 
   const [isExecuting, setIsExecuting] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
@@ -54,77 +90,92 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
 
   if (!isOpen) return null;
 
+  const applyMapping = (headers: string[]) => {
+    const m = mapImportHeaders(headers);
+    setDateCol(m.dateCol); setTitleCol(m.titleCol); setAmountCol(m.amountCol);
+    setCategoryCol(m.categoryCol); setSubCategoryCol(m.subCategoryCol); setPartyCol(m.partyCol);
+    setIsPaidCol(m.isPaidCol); setPayerPersonCol(m.payerPersonCol);
+    setCurrencyCol(m.currencyCol); setAccountFromCol(m.accountFromCol); setExchangeRateCol(m.exchangeRateCol);
+  };
+
+  const invalidateAnalysis = () => {
+    analysisGeneration.current++;
+    setIsAnalyzing(false);
+    setAnalysis(null);
+    setAnalyzedSource(null);
+    setResultMessage(null);
+    setSkippedRows([]);
+    applyMapping([]);
+  };
+
+  const handleClose = () => {
+    if (exporting.current) return;
+    invalidateAnalysis();
+    setFileName(''); setSheetsUrl(''); setError('');
+    onClose();
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    invalidateAnalysis();
+    const generation = analysisGeneration.current;
     setFileName(file.name);
     setError('');
     const reader = new FileReader();
     reader.onload = async () => {
       const b64 = reader.result as string;
-      setFileBase64(b64);
-      await analyzeWorkbook(b64, undefined);
+      if (generation !== analysisGeneration.current) return;
+      await analyzeWorkbook({ base64: b64 });
     };
+    reader.onerror = () => { if (generation === analysisGeneration.current) setError(t('Dosya okunamadı.', 'Could not read the file.')); };
     reader.readAsDataURL(file);
   };
 
   const handleAnalyzeUrl = async () => {
     if (!sheetsUrl.trim()) return;
-    await analyzeWorkbook(undefined, sheetsUrl.trim());
+    await analyzeWorkbook({ sheetsUrl: sheetsUrl.trim() });
   };
 
-  const analyzeWorkbook = async (base64?: string, url?: string) => {
+  const analyzeWorkbook = async (source: ImportSource) => {
+    invalidateAnalysis();
+    const generation = analysisGeneration.current;
     try {
       setIsAnalyzing(true);
       setError('');
-      setAnalysis(null);
-      setResultMessage(null);
-
-      const res = await ApiClient.analyzeImport({
-        base64: base64 || fileBase64 || undefined,
-        sheetsUrl: url || sheetsUrl || undefined,
-      });
+      const res = await ApiClient.analyzeImport(source);
+      if (generation !== analysisGeneration.current) return;
 
       setAnalysis(res);
+      setAnalyzedSource(source);
       setSelectedSheetIndex(0);
-
-      // Akıllı varsayılan sütun eşleştirmesi
-      if (res.sheets?.[0]?.headers) {
-        const headers: string[] = res.sheets[0].headers.map((h: string) => h.toLowerCase());
-        headers.forEach((h, idx) => {
-          if (h.includes('tarih') || h.includes('date')) setDateCol(idx);
-          if (h.includes('başlık') || h.includes('kalem') || h.includes('açıklama') || h.includes('title')) setTitleCol(idx);
-          if (h.includes('tutar') || h.includes('bedel') || h.includes('fiyat') || h.includes('amount')) setAmountCol(idx);
-          if (h.includes('kategori') || h.includes('grup') || h.includes('category')) setCategoryCol(idx);
-          if (h.includes('alt') || h.includes('kırılım')) setSubCategoryCol(idx);
-          if (h.includes('cari') || h.includes('tedarikçi') || h.includes('firma') || h.includes('party')) setPartyCol(idx);
-          if (h.includes('durum') || h.includes('ödendi') || h.includes('status')) setIsPaidCol(idx);
-          if (h.includes('şahıs') || h.includes('cebinden') || h.includes('kasa')) setPayerPersonCol(idx);
-        });
-      }
+      applyMapping(res.sheets?.[0]?.headers || []);
     } catch (err: any) {
-      setError(err.message || t('Dosya analiz edilemedi.', 'Could not analyze the file.'));
+      if (generation === analysisGeneration.current) setError(err.message || t('Dosya analiz edilemedi.', 'Could not analyze the file.'));
     } finally {
-      setIsAnalyzing(false);
+      if (generation === analysisGeneration.current) setIsAnalyzing(false);
     }
   };
 
   const handleExecuteImport = async () => {
-    if (dateCol < 0 || titleCol < 0 || amountCol < 0) {
+    if (exporting.current || resultMessage) return;
+    const currentSheet = analysis?.sheets?.[selectedSheetIndex];
+    const mapping = { dateCol, titleCol, amountCol, categoryCol, subCategoryCol, partyCol, isPaidCol, payerPersonCol, currencyCol, accountFromCol, exchangeRateCol };
+    if (!analyzedSource || !currentSheet || validateImportColumnMapping(mapping, currentSheet.headers?.length || 0)) {
       setError(t('Lütfen en azından Tarih, Başlık ve Tutar sütunlarını eşleştiriniz.', 'Map at least the Date, Title, and Amount columns.'));
       return;
     }
 
     try {
+      exporting.current = true;
       setIsExecuting(true);
       setError('');
 
-      const currentSheet = analysis?.sheets?.[selectedSheetIndex];
       const res = await ApiClient.executeImport({
-        base64: fileBase64 || undefined,
-        sheetsUrl: sheetsUrl || undefined,
-        sheetName: currentSheet?.sheetName,
+        ...analyzedSource,
+        sheetName: currentSheet.sheetName,
+        sheetDigest: currentSheet.sheetDigest,
         projectId: selectedProjectId || undefined,
         mapping: {
           dateCol,
@@ -135,19 +186,21 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
           partyCol: partyCol >= 0 ? partyCol : undefined,
           isPaidCol: isPaidCol >= 0 ? isPaidCol : undefined,
           payerPersonCol: payerPersonCol >= 0 ? payerPersonCol : undefined,
+          currencyCol: currencyCol >= 0 ? currencyCol : undefined,
+          accountFromCol: accountFromCol >= 0 ? accountFromCol : undefined,
+          exchangeRateCol: exchangeRateCol >= 0 ? exchangeRateCol : undefined,
         },
       });
 
       setResultMessage(typeof res.importedCount === 'number'
         ? t(res.message, `Imported ${res.importedCount} expense ${res.importedCount === 1 ? 'record' : 'records'}.`)
         : res.message);
-      await onImportComplete();
-      setTimeout(() => {
-        onClose();
-      }, 2500);
+      setSkippedRows(Array.isArray(res.skippedRows) ? res.skippedRows : []);
+      if (res.importedCount > 0) await onImportComplete();
     } catch (err: any) {
       setError(err.message || t('İçe aktarma sırasında bir hata oluştu.', 'An error occurred during import.'));
     } finally {
+      exporting.current = false;
       setIsExecuting(false);
     }
   };
@@ -155,6 +208,28 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
   const currentSheet = analysis?.sheets?.[selectedSheetIndex];
   const headers = currentSheet?.headers || [];
   const previewRows = currentSheet?.preview || [];
+
+  const skippedRowReason = (code: string) => {
+    const reasons: Record<string, [string, string]> = {
+      TITLE_REQUIRED: ['Başlık boş olamaz.', 'A title is required.'],
+      AMOUNT_REQUIRED: ['Tutar boş olamaz.', 'An amount is required.'],
+      AMOUNT_INVALID: ['Tutar biçimi geçersiz.', 'The amount format is invalid.'],
+      AMOUNT_PRECISION: ['Tutar en fazla iki ondalık basamak içerebilir.', 'The amount can have at most two decimal places.'],
+      AMOUNT_AMBIGUOUS: ['Tutar ayraçları belirsiz.', 'The amount separators are ambiguous.'],
+      DATE_INVALID: ['Tarih geçersiz veya belirsiz.', 'The date is invalid or ambiguous.'],
+      CURRENCY_INVALID: ['Para birimi geçersiz veya desteklenmiyor.', 'The currency is invalid or unsupported.'],
+      CURRENCY_CONFLICT: ['Tutar ve para birimi alanları uyuşmuyor.', 'The amount and currency fields conflict.'],
+      EXCHANGE_RATE_REQUIRED: ['Farklı para birimleri için döviz kuru sütununu eşleyin.', 'Map an exchange rate column for different currencies.'],
+      EXCHANGE_RATE_INVALID: ['Döviz kuru pozitif ve geçerli olmalıdır.', 'The exchange rate must be positive and valid.'],
+      PAYMENT_INVALID: ['Ödeme durumu tanınmadı.', 'The payment status is not recognized.'],
+      PAYMENT_ACCOUNT_REQUIRED: ['Ödenmiş şirket gideri için ödeme hesabı gerekir.', 'A paid company expense requires a payment account.'],
+      PAYMENT_ACCOUNT_INVALID: ['Ödeme hesabı geçersiz, pasif, kapsam dışı veya para birimiyle uyumsuz.', 'The payment account is invalid, inactive, out of scope, or uses another currency.'],
+      PAYMENT_SOURCE_CONFLICT: ['Şahıs ödemesi ve şirket hesabı aynı satırda birlikte seçilemez.', 'A personal payer and company account cannot be selected on the same row.'],
+    };
+    const reason = reasons[code] || ['Satırdaki değerler geçersiz.', 'The row contains invalid values.'];
+    return t(reason[0], reason[1]);
+  };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 select-none">
@@ -171,7 +246,7 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
             </div>
           </div>
 
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200">
+          <button onClick={handleClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -180,9 +255,10 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-5 text-xs">
           <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200 max-w-md mx-auto">
             <button
+              disabled={isExecuting}
               onClick={() => {
+                invalidateAnalysis();
                 setActiveTab('excel');
-                setAnalysis(null);
                 setError('');
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold transition ${
@@ -194,9 +270,11 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
             </button>
 
             <button
+              disabled={isExecuting}
               onClick={() => {
+                invalidateAnalysis();
                 setActiveTab('google_sheets');
-                setAnalysis(null);
+                setFileName('');
                 setError('');
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg font-bold transition ${
@@ -220,6 +298,16 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
               <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
               <span>{resultMessage}</span>
             </div>
+          )}
+
+          {skippedRows.length > 0 && (
+            <section aria-label={t('Atlanan satırlar', 'Skipped rows')} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
+              <p role="status" className="font-semibold">{t(`Atlanan satır: ${skippedRows.length}`, `Skipped rows: ${skippedRows.length}`)}</p>
+              <ul className="mt-2 max-h-40 overflow-auto">
+                {skippedRows.map(row => <li key={row.rowNumber}>{t('Satır', 'Row')} {row.rowNumber}: {skippedRowReason(row.code)}</li>)}
+              </ul>
+              <p className="mt-2">{t('Yeniden aktarmadan önce yalnız atlanan satırları düzeltip ayrı bir dosyaya alın.', 'Correct and separate the skipped rows before importing again.')}</p>
+            </section>
           )}
 
           {/* 1. KAYNAK GİRİŞİ */}
@@ -246,7 +334,7 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                     type="url"
                     placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv"
                     value={sheetsUrl}
-                    onChange={(e) => setSheetsUrl(e.target.value)}
+                    onChange={(e) => { invalidateAnalysis(); setSheetsUrl(e.target.value); setError(''); }}
                     className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
                   />
                   <div className="text-[11px] text-slate-500 space-y-1">
@@ -273,7 +361,12 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                   <span className="font-bold text-slate-700">{t('Sayfa:', 'Sheet:')}</span>
                   <select
                     value={selectedSheetIndex}
-                    onChange={(e) => setSelectedSheetIndex(Number(e.target.value))}
+                    disabled={isExecuting}
+                    onChange={(e) => {
+                      const index = Number(e.target.value);
+                      setSelectedSheetIndex(index);
+                      applyMapping(analysis.sheets[index]?.headers || []);
+                    }}
                     className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-slate-800 font-semibold focus:outline-none"
                   >
                     {analysis.sheets.map((s: any, idx: number) => (
@@ -285,7 +378,8 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                 </div>
 
                 <button
-                  onClick={() => setAnalysis(null)}
+                  disabled={isExecuting}
+                  onClick={invalidateAnalysis}
                   className="text-xs text-blue-600 hover:underline font-semibold"
                 >
                   {t('Başka Dosya Seç', 'Choose Another File')}
@@ -304,6 +398,7 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                       onChange={(e) => setDateCol(Number(e.target.value))}
                       className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-medium focus:outline-none"
                     >
+                      <option value={-1}>{t('-- Sütun seçin --', '-- Select a column --')}</option>
                       {headers.map((h: string, idx: number) => (
                         <option key={idx} value={idx}>{t(`${idx + 1}. Sütun: `, `Column ${idx + 1}: `)}{h || t(`(Kolon ${idx + 1})`, `(Column ${idx + 1})`)}</option>
                       ))}
@@ -317,6 +412,7 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                       onChange={(e) => setTitleCol(Number(e.target.value))}
                       className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-medium focus:outline-none"
                     >
+                      <option value={-1}>{t('-- Sütun seçin --', '-- Select a column --')}</option>
                       {headers.map((h: string, idx: number) => (
                         <option key={idx} value={idx}>{t(`${idx + 1}. Sütun: `, `Column ${idx + 1}: `)}{h || t(`(Kolon ${idx + 1})`, `(Column ${idx + 1})`)}</option>
                       ))}
@@ -330,6 +426,7 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                       onChange={(e) => setAmountCol(Number(e.target.value))}
                       className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-medium focus:outline-none font-bold"
                     >
+                      <option value={-1}>{t('-- Sütun seçin --', '-- Select a column --')}</option>
                       {headers.map((h: string, idx: number) => (
                         <option key={idx} value={idx}>{t(`${idx + 1}. Sütun: `, `Column ${idx + 1}: `)}{h || t(`(Kolon ${idx + 1})`, `(Column ${idx + 1})`)}</option>
                       ))}
@@ -385,7 +482,7 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                       onChange={(e) => setIsPaidCol(Number(e.target.value))}
                       className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-medium focus:outline-none"
                     >
-                      <option value="-1">{t('-- Hepsi Peşin Ödendi --', '-- All Paid Up Front --')}</option>
+                      <option value="-1">{t('-- Ödenmemiş say --', '-- Treat as unpaid --')}</option>
                       {headers.map((h: string, idx: number) => (
                         <option key={idx} value={idx}>{t(`${idx + 1}. Sütun: `, `Column ${idx + 1}: `)}{h || t(`(Kolon ${idx + 1})`, `(Column ${idx + 1})`)}</option>
                       ))}
@@ -393,13 +490,13 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">{t('Cebinden Ödeyen (Oto-Kasa)', 'Person Who Paid (Out-of-Pocket)')}</label>
+                    <label className="block text-slate-700 font-semibold mb-1">{t('Cebinden Ödeyen', 'Person Who Paid')}</label>
                     <select
                       value={payerPersonCol}
                       onChange={(e) => setPayerPersonCol(Number(e.target.value))}
                       className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-medium focus:outline-none"
                     >
-                      <option value="-1">{t('-- Hepsi Şirket Kasasından --', '-- All Paid From Company Cash --')}</option>
+                      <option value="-1">{t('-- Şahıs ödemesi yok --', '-- No personal payer --')}</option>
                       {headers.map((h: string, idx: number) => (
                         <option key={idx} value={idx}>{t(`${idx + 1}. Sütun: `, `Column ${idx + 1}: `)}{h || t(`(Kolon ${idx + 1})`, `(Column ${idx + 1})`)}</option>
                       ))}
@@ -407,6 +504,28 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                <label>{t('Para birimi sütunu', 'Currency column')}
+                  <select value={currencyCol} onChange={event => setCurrencyCol(Number(event.target.value))} className="mt-1 block w-full rounded border p-2">
+                    <option value={-1}>{t('Tutar işareti veya proje para birimi', 'Amount marker or project currency')}</option>
+                    {headers.map((header: string, index: number) => <option key={index} value={index}>{header || index + 1}</option>)}
+                  </select>
+                </label>
+                <label>{t('Döviz kuru sütunu', 'Exchange rate column')}
+                  <select value={exchangeRateCol} onChange={event => setExchangeRateCol(Number(event.target.value))} className="mt-1 block w-full rounded border p-2">
+                    <option value={-1}>{t('Aynı para biriminde otomatik 1', 'Automatic 1 for matching currencies')}</option>
+                    {headers.map((header: string, index: number) => <option key={index} value={index}>{header || index + 1}</option>)}
+                  </select>
+                </label>
+                <label>{t('Ödeme hesabı kimliği sütunu', 'Payment account ID column')}
+                  <select value={accountFromCol} onChange={event => setAccountFromCol(Number(event.target.value))} className="mt-1 block w-full rounded border p-2">
+                    <option value={-1}>{t('Hesap sütunu yok', 'No account column')}</option>
+                    {headers.map((header: string, index: number) => <option key={index} value={index}>{header || index + 1}</option>)}
+                  </select>
+                </label>
+              </div>
+              <p>{t('Farklı para birimindeki giderler için kur, işlem para biriminin bir biriminin proje para birimindeki değeri olarak girilmelidir (ör. 1 USD = 0,92 EUR için 0,92). Ödeme durumu boşsa gider ödenmemiş sayılır.', 'For different currencies, enter the project-currency value of one unit of the transaction currency (for example, 0.92 for 1 USD = 0.92 EUR). A blank payment status is treated as unpaid.')}</p>
 
               {/* Canlı Örnek Satırlar Önizlemesi */}
               {previewRows.length > 0 && (
@@ -443,7 +562,7 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
               <div className="pt-3 border-t border-slate-200 flex justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
                 >
                   {t('Vazgeç', 'Cancel')}
@@ -451,7 +570,7 @@ export const UniversalExcelModal: React.FC<UniversalExcelModalProps> = ({
 
                 <button
                   type="button"
-                  disabled={isExecuting}
+                  disabled={isExecuting || resultMessage !== null}
                   onClick={handleExecuteImport}
                   className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm disabled:opacity-50 flex items-center gap-2"
                 >

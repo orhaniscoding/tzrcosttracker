@@ -69,7 +69,7 @@ Invoke-RestMethod "http://127.0.0.1:$webPort/health"
 
 ## Compose ile çevrimdışı kurtarma
 
-Kurtarmayı sentetik verilerle prova edin. V1 içe aktarımı yalnızca beş tabloyu geri yükler. V2, desteklenen veritabanı şemasındaki 11 tabloyu kapsar. Ek dosya verisi V2 kapsamı dışındadır. İmaj veya şema değişikliğinden önce V2 yedeğini, parolasını ve önceki kurulumun anahtarları ile imajını doğrulayın. [İşletim kılavuzu](OPERATIONS.md)
+Kurtarmayı sentetik verilerle prova edin. Eski V1 yedek uçları kaldırıldı. Mevcut V1 dosyalarını olası çevrimdışı dönüşüm için saklayın. V2, desteklenen veritabanı şemasındaki 11 tabloyu kapsar. Ek dosya verisi V2 kapsamı dışındadır. İmaj veya şema değişikliğinden önce V2 yedeğini, parolasını ve önceki kurulumun anahtarları ile imajını doğrulayın. [İşletim kılavuzu](OPERATIONS.md)
 
 Docker ana makinesinde veya aynı Docker bağlamına, kaynak dizinine ve volume'e erişen WSL2 ortamında bir POSIX kabuğu kullanın. Örnekler mevcut bir Compose projesi, hedef veritabanı ve önceden derlenmiş API imajı gerektirir. `COSTCORE_COMPOSE_PROJECT` değerine projenin tam adını, `COSTCORE_COMPOSE_ENV_FILE` değerine o kurulumun env dosyasını verin. Başlatıcıyla oluşturulan kurulum için yazdırılan proje adını ve `.cache/costcore-docker/local.env` dosyasını kullanın. Kabuk ortamında dosyadaki anahtarları değiştirecek değişkenler bulunmamalıdır. Elle yönetilen kurulum için mevcut proje adını ve açıkça seçilmiş boş env dosyasını kullanın, anahtarları Compose işlem ortamından sağlayın. Aynı Docker bağlamı ve Compose dosyasıyla işlem yapın.
 

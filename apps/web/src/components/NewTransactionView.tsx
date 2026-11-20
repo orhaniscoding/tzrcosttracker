@@ -100,12 +100,12 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
     const accountError = paymentSource === 'company_account' ? validateFormAccount(accountState, accountFromId, currency) : null;
     if (accountError) { setFormError(accountError); return; }
     if (!title || !amount || !categoryId) {
-      alert('Lütfen en azından Başlık, Tutar ve Kategori alanlarını doldurunuz.');
+      setFormError(t('Başlık, tutar ve kategori girin.', 'Enter a title, amount, and category.'));
       return;
     }
 
     if (paymentSource === 'person_out_of_pocket' && !payerPersonName.trim()) {
-      alert('Lütfen harcamayı kendi cebinden ödeyen kişinin adını giriniz.');
+      setFormError(t('Harcamayı ödeyen kişinin adını girin.', 'Enter the name of the person who paid.'));
       return;
     }
 
@@ -137,7 +137,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
         setParty('');
         setDescription('');
         setDuplicateWarning(false);
-        setSuccessNotice('Kayıt başarıyla eklendi. Yeni kayıt girebilirsiniz.');
+        setSuccessNotice(t('Harcama kaydedildi.', 'Expense saved.'));
       } else {
         onNavigateBack();
       }
@@ -150,7 +150,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
   return (
     <div className="space-y-6 max-w-4xl">
       {formError && <p role="alert">{formError}</p>}
-      {accountState.error && <p role="alert">{localize("Cüzdanlar yüklenemedi: ", "Could not load accounts: ")}{accountState.error} <button type="button" onClick={() => void accountState.retry()}>Yeniden dene</button></p>}
+      {accountState.error && <p role="alert">{localize("Cüzdanlar yüklenemedi: ", "Could not load accounts: ")}{accountState.error} <button type="button" onClick={() => void accountState.retry()}>{t('Yeniden dene', 'Retry')}</button></p>}
       {/* BAŞLIK VE GERİ DÖNÜŞ BAR */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -457,7 +457,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
               style={{ backgroundColor: settings.primaryColor }}
             >
               <Save className="h-4 w-4" />
-              <span>{isSubmitting ? 'Kaydediliyor...' : 'Harcamayı Kaydet ve Listeye Dön'}</span>
+              <span>{isSubmitting ? t('Kaydediliyor…', 'Saving…') : t('Harcamayı kaydet ve listeye dön', 'Save expense and return to list')}</span>
             </button>
           </div>
         </div>

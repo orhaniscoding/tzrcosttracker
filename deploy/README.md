@@ -18,7 +18,7 @@ Open the loopback address printed by the launcher. The default is `http://127.0.
 node scripts/run-docker.mjs setup-key
 ```
 
-The launcher prints a Compose project name derived from the checkout path. Record that name for recovery. It stores independent keys and the selected port in `.cache/costcore-docker/local.env` and reuses that file on later runs. If the file is missing and the matching volume exists, the launcher stops before generating keys. Keep the env file private and backed up alongside its installation records. Restrict access to its parent directory and file on Windows. Moving the checkout can change the project name, so check the data volume before starting from a different location.
+The launcher stores independent keys, the selected port, the Compose project identity (`COSTCORE_COMPOSE_PROJECT`), and its initialization state in `.cache/costcore-docker/local.env`. On a clean Docker context it derives an identity from the checkout path; if any CostCore data volume already exists and the key file is missing, set `COSTCORE_COMPOSE_PROJECT` to the recorded installation name before starting so a moved checkout cannot create a second empty installation. A saved identity is reused after moving the checkout, and an explicit identity that differs from the saved one fails closed. Keep the env file private and backed up alongside its installation records. Restrict access to its parent directory and file on Windows. An interrupted first start can be retried with the same key file. After the first administrator exists, remove `BOOTSTRAP_TOKEN` from the env file; later `up` runs preserve the other keys and volume, and `setup-key` reports that no setup token is available.
 
 Stop and remove the containers and network while keeping the named data volume:
 
@@ -69,7 +69,7 @@ Enter the supplied `BOOTSTRAP_TOKEN` on first run. The operator can remove it an
 
 ## Compose offline recovery
 
-Rehearse recovery on synthetic data. V1 import restores only five tables. V2 covers 11 tables in the supported database schema. Attachment data is outside the V2 contract. Before changing an image or schema, verify a V2 export, its password, and the previous deployment's keys and image. [Operations guide](../docs/OPERATIONS.md)
+Rehearse recovery on synthetic data. Legacy V1 backup routes are retired. Keep existing V1 files for possible offline conversion. V2 covers 11 tables in the supported database schema. Attachment data is outside the V2 contract. Before changing an image or schema, verify a V2 export, its password, and the previous deployment's keys and image. [Operations guide](../docs/OPERATIONS.md)
 
 Use a POSIX shell on the Docker host or in a WSL2 environment that accesses the same Docker context, checkout, and volume. The examples require an existing Compose project, an existing target database, and a previously built API image. Set `COSTCORE_COMPOSE_PROJECT` to the exact project name and `COSTCORE_COMPOSE_ENV_FILE` to that installation's env file. For a launcher installation, use its printed project name and `.cache/costcore-docker/local.env` in a clean shell without overriding key variables. For a manually managed installation, use its existing project name and explicit empty env file and supply the keys through the Compose process environment. Keep the same Docker context and Compose file throughout.
 

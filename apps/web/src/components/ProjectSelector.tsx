@@ -93,7 +93,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 <div className="font-medium text-white truncate">{p.name}</div>
                 {p.budget > 0 && (
                   <div className="text-[10px] text-slate-400">
-                    {t('Bütçe', 'Budget')}: {new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'TRY' }).format(p.budget)}
+                    {t('Bütçe', 'Budget')}: {new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 2 }).format(p.budget)} {p.currency}
                   </div>
                 )}
               </div>

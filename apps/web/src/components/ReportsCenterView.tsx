@@ -1,3 +1,4 @@
+import { formatCurrency } from '../format-currency.js';
 import React, { useState } from 'react';
 import { useLocale } from '../context/LocaleContext.js';
 import {
@@ -65,11 +66,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
   const [yearDraft, setYearDraft] = useState(String(now.getFullYear()).padStart(4, '0'));
 
   const formatMoney = (val: number, code = currency) => {
-    return new Intl.NumberFormat(intlLocale, {
-      style: 'currency',
-      currency: code,
-      maximumFractionDigits: 2,
-    }).format(val || 0);
+    return formatCurrency(intlLocale, code, val || 0, 2);
   };
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
@@ -94,8 +91,8 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
       setStartDate(localDate(new Date(d.getFullYear(), 0, 1)));
       setEndDate(localDate(d));
     } else if (range === 'all') {
-      setStartDate('2020-01-01');
-      setEndDate('2035-12-31');
+      setStartDate('');
+      setEndDate('');
     }
   };
 
@@ -144,11 +141,11 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
       objectUrl = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
       link = document.createElement('a');
       link.href = objectUrl;
-      link.download = 'TZR_Cost_Tracker_Rapor_' + startDate + '_' + endDate + '.csv';
+      link.download = 'TZR_Cost_Tracker_Rapor_' + (startDate || 'start') + '_' + (endDate || 'end') + '.csv';
       document.body.appendChild(link);
       link.click();
     } catch {
-      alert('Rapor indirilemedi. L\u00fctfen tekrar deneyin.');
+      alert(t('Rapor indirilemedi. Lütfen tekrar deneyin.', 'Could not download the report. Please try again.'));
     } finally {
       try {
         link?.remove();
@@ -172,15 +169,15 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-blue-600" />
               <span>
-                {currentTab === 'date_range' && 'Özel Tarih Aralıklı Maliyet Raporu'}
-                {currentTab === 'daily' && 'Günlük mali hareket özeti'}
-                {currentTab === 'monthly_yearly' && 'Aylık ve yıllık mali hareket özeti'}
+                {currentTab === 'date_range' && t('Özel Tarih Aralıklı Maliyet Raporu', 'Cost report for a custom date range')}
+                {currentTab === 'daily' && t('Günlük mali hareket özeti', 'Daily financial summary')}
+                {currentTab === 'monthly_yearly' && t('Aylık ve yıllık mali hareket özeti', 'Monthly and annual financial summary')}
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              {currentTab === 'date_range' && 'Seçtiğiniz tarih aralığı, kategori ve tedarikçiye göre filtrelenmiş gelir/gider dökümü'}
-              {currentTab === 'daily' && 'Yüklenen kayıtlardan, seçilen güne göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.'}
-              {currentTab === 'monthly_yearly' && 'Yüklenen kayıtlardan, seçilen yıla göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.'}
+              {currentTab === 'date_range' && t('Seçtiğiniz tarih aralığı, kategori ve tedarikçiye göre filtrelenmiş gelir/gider dökümü', 'Income and expenses filtered by date range, category, and supplier')}
+              {currentTab === 'daily' && t('Yüklenen kayıtlardan, seçilen güne göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.', 'Calculated from loaded records for the selected day. Cash flow excludes opening and current account balances.')}
+              {currentTab === 'monthly_yearly' && t('Yüklenen kayıtlardan, seçilen yıla göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.', 'Calculated from loaded records for the selected year. Cash flow excludes opening and current account balances.')}
             </p>
           </div>
 
@@ -329,14 +326,14 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
             </div>
 
             {/* Dönem Özet KPI Kartları */}
-            <section aria-label={'Dönem finansal özeti'} className={'space-y-3'}>
+            <section aria-label={t('Dönem finansal özeti', 'Financial summary for the period')} className={'space-y-3'}>
               <p>{localize("Yüklenen kayıtlardan, seçili filtrelere göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.", "Calculated from the loaded records and selected filters. Cash flow excludes opening and current account balances.")}</p>
               {rangeFinance.excludedCurrencies.length > 0 && <p role={'alert'}>{localize("Ana para birimi özeti kısmidir; diğer para birimleri ayrı gösterilir: ", "The main summary covers the base currency only. Other currencies appear separately: ")}{rangeFinance.excludedCurrencies.join(', ')}</p>}
               {[currency, ...rangeFinance.excludedCurrencies].map((code) => {
                 const totals = code === currency ? rangeFinance : rangeFinance.byCurrency[code];
                 return (
-                  <section key={code} aria-label={`Finansal özet ${code}`} className={'rounded-xl border border-slate-200 p-4'}>
-                    <h3 className={'font-bold'}>{code}{code === currency ? ' (Ana para birimi)' : ''}</h3>
+                  <section key={code} aria-label={`${t('Finansal özet', 'Financial summary')} ${code}`} className={'rounded-xl border border-slate-200 p-4'}>
+                    <h3 className={'font-bold'}>{code}{code === currency ? t(' (Ana para birimi)', ' (Base currency)') : ''}</h3>
                     <dl className={'grid grid-cols-1 sm:grid-cols-3 gap-3'}>
                       <div><dt>{localize("Tanınan gelir", "Recognized income")}</dt><dd>{formatMoney(totals.totalIncome, code)}</dd></div>
                       <div><dt>{localize("Tanınan gider", "Recognized expenses")}</dt><dd>{formatMoney(totals.totalExpense, code)}</dd></div>
@@ -494,7 +491,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
             {[currency, ...dayFinance.excludedCurrencies].map((code) => {
               const totals = code === currency ? dayFinance : dayFinance.byCurrency[code];
               return (
-                <section aria-label={'Günlük finansal özet ' + code} key={code} className={'min-w-0 rounded-xl border border-slate-200 bg-white p-4'}>
+                <section aria-label={t('Günlük finansal özet ', 'Daily financial summary ') + code} key={code} className={'min-w-0 rounded-xl border border-slate-200 bg-white p-4'}>
                   <h3 className={'font-bold mb-3'}>{code}</h3>
                   <dl className={'grid grid-cols-1 sm:grid-cols-2 gap-3 break-words'} style={{ overflowWrap: 'anywhere' }}>
                     <div><dt>{localize("Tanınan gelir", "Recognized income")}</dt><dd>{formatMoney(totals.totalIncome, code)}</dd></div>
@@ -508,7 +505,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                 </section>
               );
             })}
-            <section aria-label={'Günün ham kayıtları'} className={'min-w-0 rounded-xl border border-slate-200 bg-white p-4'}>
+            <section aria-label={t('Günün ham kayıtları', 'Daily transaction records')} className={'min-w-0 rounded-xl border border-slate-200 bg-white p-4'}>
               <h3 className={'font-bold mb-3'}>{localize("Günün ham kayıtları (", "Daily transaction records (")}{dayTransactions.length}{localize(" ham kayıt)", " records)")}</h3>
               {dayTransactions.length === 0 ? <p>{localize("Bu gün için kayıt bulunamadı.", "There are no records for this date.")}</p> : (
                 <ul className={'divide-y divide-slate-100'}>
@@ -549,11 +546,11 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
               const annual = yearFinance.byCurrency[code] ?? computeReportFinance(yearTransactions, code);
               return (
                 <section key={code} className="min-w-0 max-w-full space-y-2">
-                  <h3 className="font-bold text-slate-900">{code} — {yearKey} {code === currency ? '(baz para birimi)' : ''}</h3>
-                  <div aria-label={`Aylık mali özet ${code} ${yearKey}`} role="region" tabIndex={0} className="overflow-x-auto max-w-full min-w-0 border border-slate-200 rounded-xl">
+                  <h3 className="font-bold text-slate-900">{code} — {yearKey} {code === currency ? localize('(baz para birimi)', '(base currency)') : ''}</h3>
+                  <div aria-label={`${t('Aylık mali özet', 'Monthly financial summary')} ${code} ${yearKey}`} role="region" tabIndex={0} className="overflow-x-auto max-w-full min-w-0 border border-slate-200 rounded-xl">
                     <table className="w-full min-w-[1000px] text-left text-xs border-collapse">
                       <caption>{code} — {yearKey}{localize(" aylık ve yıllık mali hareketler", " monthly and annual financial activity")}</caption>
-                      <thead><tr className="bg-slate-100 text-slate-700">{['Ay', 'Tanınan gelir', 'Tanınan gider', 'Bekleyen şirket borcu', 'Faaliyet neti', 'Net şirket nakit akışı', 'Tanınan işlem adedi', 'Yıllık gider payı'].map((label) => <th key={label} scope="col" className="p-3">{label}</th>)}</tr></thead>
+                      <thead><tr className="bg-slate-100 text-slate-700">{[t('Ay', 'Month'), t('Tanınan gelir', 'Recognized income'), t('Tanınan gider', 'Recognized expenses'), t('Bekleyen şirket borcu', 'Outstanding company debt'), t('Faaliyet neti', 'Operating net'), t('Net şirket nakit akışı', 'Net company cash flow'), t('Tanınan işlem adedi', 'Recognized transactions'), t('Yıllık gider payı', 'Share of annual expenses')].map((label) => <th key={label} scope="col" className="p-3">{label}</th>)}</tr></thead>
                       <tbody>{monthlyMatrix.map((month) => {
                         const totals = month.finance.byCurrency[code] ?? computeReportFinance(month.transactions, code);
                         const share = annual.totalExpense > 0 ? totals.totalExpense / annual.totalExpense * 100 : 0;

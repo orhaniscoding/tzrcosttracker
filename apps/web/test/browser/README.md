@@ -16,4 +16,4 @@ From `apps/web`, use the installed Playwright and browser to exercise the backup
 
     node test/browser/backup-v2.browser.cjs ABS_PLAYWRIGHT_NODE_MODULES ABS_BROWSER_EXE [ABS_SCREENSHOT]
 
-The test serves a synthetic response within the browser session. It checks the separate V1 and V2 passwords, the UTF-8 limit, the outgoing JSON, the downloaded filename and bytes, and the success notice. The server suite in `apps/server/test/backup-access-api.test.ts` separately opens a real encrypted backup of an in-memory database.
+The test serves a synthetic response within the browser session. It checks the V2-only interface and offline restore instructions, the UTF-8 limit, the outgoing JSON, the downloaded filename and bytes, and the success notice. The server suite in `apps/server/test/backup-access-api.test.ts` separately opens a real encrypted backup of an in-memory database.

@@ -1,3 +1,4 @@
+import { formatCurrency } from '../format-currency.js';
 import React from 'react';
 import { useLocale } from '../context/LocaleContext.js';
 import type { Transaction } from '@cost-core/types';
@@ -59,7 +60,7 @@ export const CompanyDebtTable: React.FC<Props> = ({ transactions, isLoading, can
                               <td className="py-2.5 px-3 font-medium text-slate-900">{t.title}</td>
                               <td className="py-2.5 px-3 text-slate-600">{t.party || '-'}</td>
                               <td className="py-2.5 px-3 text-right font-bold font-mono text-rose-600 text-sm">
-                                {new Intl.NumberFormat(intlLocale, { style: 'currency', currency: t.currency || 'TRY' }).format(t.amount)}
+                                {formatCurrency(intlLocale, t.currency || 'TRY', t.amount)}
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <span

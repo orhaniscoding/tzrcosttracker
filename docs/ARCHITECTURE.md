@@ -39,7 +39,7 @@ In local development, the Vite server forwards API requests to the configured Fa
 
 The first-run wizard creates the first administrator, initial project, and starter settings. It requires a server-side bootstrap secret. Later accounts are created by an administrator. Standard login issues a signed JWT linked to an active database session. The API checks the session ID, expiry, revocation, and current user state. Protected operations check the current role and project membership. The browser's visible controls help users navigate these permissions. The API performs access enforcement.
 
-Passwords are verified against scrypt hashes. TOTP enrollment is tied to the current user and session, and recovery codes are single-use. Logout and administrator revocation invalidate database sessions. The browser keeps credentials in the client session context and can clear or lock that context. Use trusted devices and protect browser access as part of the account policy. [API reference](API.md)
+Passwords are verified against scrypt hashes. TOTP enrollment is tied to the current user and session, and recovery codes are single-use. Logout and administrator revocation invalidate database sessions. The browser holds its bearer token in memory for the current page. Reloading the page requires signing in again. Use trusted devices and protect browser access as part of the account policy. [API reference](API.md)
 
 ## Field protection and audit
 

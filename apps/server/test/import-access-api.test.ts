@@ -12,7 +12,7 @@ type Endpoint = typeof endpoints[number];
 const mapping = { dateCol: 0, titleCol: 1, amountCol: 2, categoryCol: 3, subCategoryCol: 4, partyCol: 5, isPaidCol: 6, payerPersonCol: 7 };
 const rows = [
   ['Date', 'Title', 'Amount', 'Category', 'Subcategory', 'Party', 'Paid', 'Payer'],
-  ['2026-01-01', ' Synthetic company expense ', 'TRY 10.50', 'Synthetic root', 'Synthetic child', ' Synthetic supplier ', 'true', ''],
+  ['2026-01-01', ' Synthetic company expense ', 'TRY 10.50', 'Synthetic root', 'Synthetic child', ' Synthetic supplier ', 'false', ''],
   ['2026-01-02', 'Synthetic personal expense', 20, 'Synthetic second', '', '', 'bekliyor', '✅🔗 Synthetic payer'],
 ];
 function workbook(data: any[][] = rows) {
@@ -117,7 +117,7 @@ describe('import admin authorization and explicit project boundary', () => {
     const s = await setup(), before = snapshot(), spies = sourceSpies();
     const analyze = await post('analyze', s.tokens.admin);
     expect(analyze.statusCode).toBe(200);
-    expect(JSON.parse(analyze.body)).toEqual({ success: true, sheets: [{ sheetName: 'Synthetic', headers: rows[0], totalRows: 2, preview: rows.slice(1) }] });
+    expect(JSON.parse(analyze.body)).toEqual({ success: true, sheets: [{ sheetName: 'Synthetic', headers: rows[0], totalRows: 2, preview: rows.slice(1), sheetDigest: expect.stringMatching(/^[a-f0-9]{64}$/) }] });
     expect(snapshot()).toEqual(before);
     const response = await post('execute', s.tokens.admin, { role: 'viewer', userId: 'manager', createdById: 'manager', scope: { all: false, projectIds: ['site1'] }, projectIds: ['site1'], targetProjectId: 'site1' });
     expect(response.statusCode).toBe(200);
@@ -128,7 +128,7 @@ describe('import admin authorization and explicit project boundary', () => {
     const company = imported.find((r: any) => r.title === 'Synthetic company expense');
     const personal = imported.find((r: any) => r.title === 'Synthetic personal expense');
     const oto = imported.find((r: any) => r.type === 'income');
-    expect(company).toMatchObject({ date: '2026-01-01T00:00:00.000Z', amount: 10.5, currency: 'TRY', exchangeRate: 1, paymentMethod: 'Banka', party: 'Synthetic supplier', isPaid: true, status: 'approved', paymentSource: 'company_account' });
+    expect(company).toMatchObject({ date: '2026-01-01T00:00:00.000Z', amount: 10.5, currency: 'TRY', exchangeRate: 1, paymentMethod: 'Banka', party: 'Synthetic supplier', isPaid: false, status: 'pending', paymentSource: 'company_account' });
     expect(personal).toMatchObject({ amount: 20, isPaid: false, status: 'pending', paymentSource: 'person_out_of_pocket', payerPersonName: 'Synthetic payer', otoKasaTransactionId: oto.id });
     expect(oto).toMatchObject({ title: '🔗 Oto-Kasa: Synthetic personal expense', amount: 20, otoKasaTransactionId: personal.id });
     const cats = s.db.select().from(categories).all(), root = cats.find((c: any) => c.name === 'Synthetic root'), child = cats.find((c: any) => c.name === 'Synthetic child');

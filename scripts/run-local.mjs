@@ -5,6 +5,7 @@ import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prepare } from './build-fingerprint.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dataDir = path.resolve(process.env.COSTCORE_DATA_DIR ?? path.join(homedir(), '.tzr-cost-tracker', 'local'));
@@ -86,11 +87,10 @@ async function waitHealthy(url, signal) {
 
 async function main() {
   if (Number(process.versions.node.split('.')[0]) !== 24) throw new Error('Install Node.js 24 LTS and run this command again.');
+  if (process.argv.slice(2).some((arg) => arg !== '--rebuild')) throw new Error('Usage: node scripts/run-local.mjs [--rebuild]');
   const buildEnv = Object.fromEntries(Object.entries(process.env).filter(([name]) => !keys.includes(name.toUpperCase())));
   Object.assign(buildEnv, { CI: 'true', TURBO_TELEMETRY_DISABLED: '1', DO_NOT_TRACK: '1' });
-  await runPnpm(['install', '--frozen-lockfile'], buildEnv);
-  await runPnpm(['-r', 'rebuild'], buildEnv);
-  await runPnpm(['build'], buildEnv);
+  await prepare(root, (args) => runPnpm(args, buildEnv), { force: process.argv.includes('--rebuild') });
 
   const serverKeys = await loadServerKeys();
   const api = startNode('apps/server/dist/index.js', [], {

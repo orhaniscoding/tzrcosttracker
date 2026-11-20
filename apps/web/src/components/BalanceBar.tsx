@@ -1,3 +1,4 @@
+import { formatCurrency } from '../format-currency.js';
 import React from 'react';
 import { useLocale } from '../context/LocaleContext.js';
 import { Wallet, AlertTriangle, Clock, TrendingUp, TrendingDown, Users } from 'lucide-react';
@@ -34,11 +35,7 @@ export const BalanceBar: React.FC<BalanceBarProps> = ({ balance, onOpenPersonCon
   const period = balance?.cashScopeMode === 'filtered_period';
 
   const formatMoney = (val: number, moneyCurrency = currency) => {
-    return new Intl.NumberFormat(intlLocale, {
-      style: 'currency',
-      currency: moneyCurrency,
-      maximumFractionDigits: 2,
-    }).format(val || 0);
+    return formatCurrency(intlLocale, moneyCurrency, val || 0, 2);
   };
 
   const actualCash = balance?.actualCashInHand || 0;

@@ -91,12 +91,12 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     const accountError = paymentSource === 'company_account' ? validateFormAccount(accountState, accountFromId, currency) : null;
     if (accountError) { setFormError(accountError); return; }
     if (!title || !amount || !categoryId) {
-      alert('Lütfen en azından Başlık, Tutar ve Kategori seçiniz.');
+      setFormError(t('Başlık, tutar ve kategori girin.', 'Enter a title, amount, and category.'));
       return;
     }
 
     if (paymentSource === 'person_out_of_pocket' && !payerPersonName.trim()) {
-      alert('Lütfen harcamayı kendi cebinden ödeyen kişi / ortağın adını giriniz.');
+      setFormError(t('Harcamayı ödeyen kişinin adını girin.', 'Enter the name of the person who paid.'));
       return;
     }
 
@@ -145,7 +145,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">{t('Yeni Maliyet & Harcama Kaydı Ekle', 'Add Cost & Expense')}</h3>
-              <p className="text-[11px] text-slate-500">{t('Tüm veriler sunucuda AES-256-GCM ile anında şifrelenir.', 'All data is encrypted on the server with AES-256-GCM.')}</p>
+              <p className="text-[11px] text-slate-500">{t('Sunucu hassas mali alanları şifreler.', 'The server encrypts selected financial fields.')}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200">
@@ -155,7 +155,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
 
         {/* Mükerrer Kayıt Radarı Bildirimi */}
         {formError && <p role="alert">{formError}</p>}
-        {accountState.error && <p role="alert">{localize("Cüzdanlar yüklenemedi: ", "Could not load accounts: ")}{accountState.error} <button type="button" onClick={() => void accountState.retry()}>Yeniden dene</button></p>}
+        {accountState.error && <p role="alert">{localize("Cüzdanlar yüklenemedi: ", "Could not load accounts: ")}{accountState.error} <button type="button" onClick={() => void accountState.retry()}>{t('Yeniden dene', 'Retry')}</button></p>}
         {duplicateWarning && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-2 text-xs text-amber-800">
             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
@@ -416,7 +416,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               style={{ backgroundColor: settings.primaryColor }}
             >
               <Plus className="h-4 w-4" />
-              <span>{isSubmitting ? 'Kaydediliyor...' : 'Harcamayı Kaydet'}</span>
+              <span>{isSubmitting ? t('Kaydediliyor…', 'Saving…') : t('Harcamayı kaydet', 'Save expense')}</span>
             </button>
           </div>
         </form>

@@ -25,3 +25,18 @@ it('whitespace-only company/username/fullName rejected 400 with no writes',async
 it('padded valid names are trimmed and stored normalized',async()=>{ app=await fresh(); const bad=payload(); bad.companyName='  Synthetic Co  '; bad.admin.username='  padded_admin  '; bad.admin.fullName='  Padded Admin  '; bad.admin.email='  padded_admin@example.test  '; bad.projectName='  My Project  '; const r=await setup(app,bad); expect(r.statusCode).toBe(201); const b=JSON.parse(r.body); expect(b.user.username).toBe('padded_admin'); expect(b.user.fullName).toBe('Padded Admin'); expect(b.user.email).toBe('padded_admin@example.test'); expect(b.project.name).toBe('My Project'); expect((await app.whiteLabelRepo.getSettings()).companyName).toBe('Synthetic Co'); expect((await app.userRepo.listUsers())[0].username).toBe('padded_admin'); });
 it('default project name uses Turkish fallback and description',async()=>{ app=await fresh(); const bad=payload(); delete bad.projectName; const r=await setup(app,bad); expect(r.statusCode).toBe(201); const projects=await app.projectRepo.listProjects(); expect(projects[0].name).toBe('Synthetic Co Ana B\u00fct\u00e7e'); expect(projects[0].description).toBe('Sistem kurulumu s\u0131ras\u0131nda olu\u015fturulan ana operasyon b\u00fct\u00e7esi'); });
 });
+
+it('bounds first-setup requests per address and preserves successful setup for another address', async () => {
+  app = await fresh();
+  const headers = { 'x-setup-token': CFG.bootstrapToken };
+  for (let i = 0; i < 15; i++) {
+    const invalid = await app.inject({ method: 'POST', url: '/api/system/setup', headers, payload: {}, remoteAddress: '192.0.2.10' });
+    expect(invalid.statusCode).toBe(400);
+  }
+  const limited = await app.inject({ method: 'POST', url: '/api/system/setup', headers, payload: payload(), remoteAddress: '192.0.2.10' });
+  expect(limited.statusCode).toBe(429);
+  expect(limited.headers['retry-after']).toBeDefined();
+  expect(await app.userRepo.listUsers()).toHaveLength(0);
+  const accepted = await app.inject({ method: 'POST', url: '/api/system/setup', headers, payload: payload(), remoteAddress: '192.0.2.20' });
+  expect(accepted.statusCode).toBe(201);
+});
