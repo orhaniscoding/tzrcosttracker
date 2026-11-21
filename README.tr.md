@@ -2,6 +2,8 @@
 
 [Read in English](README.md)
 
+[Güncel sürüm: v1.0.0](https://github.com/orhaniscoding/tzrcosttracker/releases/tag/v1.0.0)
+
 TZR Cost Tracker, proje maliyetlerini, gelirleri, kasayı, banka hesaplarını ve ödemeleri izlemek için kendi bilgisayarınızda veya sunucunuzda çalıştırabileceğiniz bir web uygulamasıdır. Node.js veya Docker Compose ile başlattıktan sonra tarayıcıda açın.
 
 ## Hızlı başlangıç
@@ -44,7 +46,7 @@ Sentetik veriyle deneyin. Bir proje, bir kategori ve 1.000 TRY açılış bakiye
 
 ## Projenin durumu
 
-Bu depo V1 kaynak adayını içerir. Kurulum kılavuzundaki platform tablosu test edilen işletim sistemlerini ve kurulum yöntemlerini gösterir. İnternetten erişilen bir sunucuda şirket verisi saklamadan önce pilot adımlarını inceleyin. Sunucu seçili hassas alanları şifreler. SQLite veritabanını, yedekleri ve anahtarları ayrıca koruyun.
+Bu, kendi sunucunuzda çalıştırabileceğiniz v1.0.0 kaynak sürümüdür; barındırılan bir hizmet değildir. Kurulum kılavuzundaki platform tablosu test edilen işletim sistemlerini ve kurulum yöntemlerini gösterir. İnternetten erişilen bir sunucuda şirket verisi saklamadan önce pilot adımlarını inceleyin. Sunucu seçili hassas alanları şifreler. SQLite veritabanını, yedekleri ve anahtarları ayrıca koruyun.
 
 ## Lisans ve atıf
 

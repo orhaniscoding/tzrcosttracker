@@ -12,10 +12,10 @@ Keep vulnerability details private while the maintainer investigates. Redact cre
 
 ## Scope and security properties
 
-The source candidate covers the browser client, Fastify API, local SQLite storage, and offline vault restore. Report defects that affect session revocation, role enforcement, project access, financial mutation integrity, input bounds, protected fields, backup validation, or recovery. Sensitive server operations should enforce current user and project permissions. Restore should validate the vault and hold the target data-directory lease before activation.
+The v1.0.0 source release covers the browser client, Fastify API, local SQLite storage, and offline vault restore. Report defects that affect session revocation, role enforcement, project access, financial mutation integrity, input bounds, protected fields, backup validation, or recovery. Sensitive server operations should enforce current user and project permissions. Restore should validate the vault and hold the target data-directory lease before activation.
 
 The server encrypts selected fields and can decrypt them with its keys. Protect the server, keys, database, backups, and browser sessions according to the deployment. V2 recovery covers the documented database schema and its supported relationships. Rehearse recovery and validate the HTTPS deployment with synthetic data before importing real financial records. [Architecture](docs/ARCHITECTURE.md) · [Operations](docs/OPERATIONS.md)
 
 ## Supported releases
 
-This repository currently publishes a source candidate. Identify the revision you tested. A security response time and supported release period have yet to be established.
+The current release is [v1.0.0](https://github.com/orhaniscoding/tzrcosttracker/releases/tag/v1.0.0), distributed as self-hosted source. Identify the exact tag or commit you tested. A security response time and supported release period have not been established.
