@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Palette, Check } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext.js';
+import { useLocale } from '../context/LocaleContext.js';
 
 interface WhiteLabelModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface WhiteLabelModalProps {
 }
 
 export const WhiteLabelModal: React.FC<WhiteLabelModalProps> = ({ isOpen, onClose }) => {
+  const { t } = useLocale();
   const { settings, updateSettings } = useTheme();
 
   const [companyName, setCompanyName] = useState(settings.companyName || '');
@@ -48,7 +50,7 @@ export const WhiteLabelModal: React.FC<WhiteLabelModalProps> = ({ isOpen, onClos
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
             <Palette className="h-5 w-5 text-purple-400" />
-            Firma Kimliği & Kozmetik Ayarlar (White-Label)
+            {t('Firma Kimliği & Kozmetik Ayarlar (White-Label)', 'Company Branding & Appearance')}
           </h3>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
             <X className="h-5 w-5" />
@@ -57,53 +59,53 @@ export const WhiteLabelModal: React.FC<WhiteLabelModalProps> = ({ isOpen, onClos
 
         <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto text-xs">
           <div>
-            <label className="block text-slate-300 font-medium mb-1">Şirket / Firma Ünvanı *</label>
+            <label className="block text-slate-300 font-medium mb-1">{t('Şirket / Firma Ünvanı *', 'Company Name *')}</label>
             <input
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
-              placeholder="Örn: Akdeniz İnşaat & Mimarlık A.Ş."
+              placeholder={t('Örn: Akdeniz İnşaat & Mimarlık A.Ş.', 'E.g. Northwind Construction Ltd.')}
               required
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 font-medium mb-1">Program Başlığı</label>
+            <label className="block text-slate-300 font-medium mb-1">{t('Program Başlığı', 'App Title')}</label>
             <input
               type="text"
               value={appTitle}
               onChange={(e) => setAppTitle(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
-              placeholder="Örn: Şantiye Maliyet Takip Portali"
+              placeholder={t('Örn: Şantiye Maliyet Takip Portali', 'E.g. Site Cost Tracker')}
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 font-medium mb-1">Firma Logo URL</label>
+            <label className="block text-slate-300 font-medium mb-1">{t('Firma Logo URL', 'Company Logo URL')}</label>
             <input
               type="url"
               value={logoUrl}
               onChange={(e) => setLogoUrl(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
-              placeholder="https://sirketiniz.com/logo.png"
+              placeholder={t('https://sirketiniz.com/logo.png', 'https://example.com/logo.png')}
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 font-medium mb-1">Özel Arka Plan Görseli (Wallpaper URL)</label>
+            <label className="block text-slate-300 font-medium mb-1">{t('Özel Arka Plan Görseli (Wallpaper URL)', 'Custom Background Image URL')}</label>
             <input
               type="url"
               value={backgroundUrl}
               onChange={(e) => setBackgroundUrl(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
-              placeholder="Örn: Şantiye veya ofis fotoğrafı URL'si"
+              placeholder={t('Örn: Şantiye veya ofis fotoğrafı URL\'si', 'E.g. URL of a site or office photo')}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-slate-300 font-medium mb-1">Ana Renk (Primary Color)</label>
+              <label className="block text-slate-300 font-medium mb-1">{t('Ana Renk (Primary Color)', 'Primary Color')}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -121,7 +123,7 @@ export const WhiteLabelModal: React.FC<WhiteLabelModalProps> = ({ isOpen, onClos
             </div>
 
             <div>
-              <label className="block text-slate-300 font-medium mb-1">İkincil Renk (Secondary)</label>
+              <label className="block text-slate-300 font-medium mb-1">{t('İkincil Renk (Secondary)', 'Secondary Color')}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -141,27 +143,27 @@ export const WhiteLabelModal: React.FC<WhiteLabelModalProps> = ({ isOpen, onClos
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-slate-300 font-medium mb-1">Varsayılan Para Birimi</label>
+              <label className="block text-slate-300 font-medium mb-1">{t('Varsayılan Para Birimi', 'Default Currency')}</label>
               <select
                 value={baseCurrency}
                 onChange={(e) => setBaseCurrency(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
               >
-                <option value="TRY">TRY (Türk Lirası)</option>
-                <option value="USD">USD (Amerikan Doları)</option>
-                <option value="EUR">EUR (Euro)</option>
+                <option value="TRY">{t('TRY (Türk Lirası)', 'TRY (Turkish Lira)')}</option>
+                <option value="USD">{t('USD (Amerikan Doları)', 'USD (US Dollar)')}</option>
+                <option value="EUR">{t('EUR (Euro)', 'EUR (Euro)')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-slate-300 font-medium mb-1">Tema Modu</label>
+              <label className="block text-slate-300 font-medium mb-1">{t('Tema Modu', 'Theme')}</label>
               <select
                 value={defaultTheme}
                 onChange={(e) => setDefaultTheme(e.target.value as any)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
               >
-                <option value="dark">Koyu Mod (Dark)</option>
-                <option value="light">Açık Mod (Light)</option>
+                <option value="dark">{t('Koyu Mod (Dark)', 'Dark Mode')}</option>
+                <option value="light">{t('Açık Mod (Light)', 'Light Mode')}</option>
               </select>
             </div>
           </div>
@@ -172,7 +174,7 @@ export const WhiteLabelModal: React.FC<WhiteLabelModalProps> = ({ isOpen, onClos
               onClick={onClose}
               className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
             >
-              Vazgeç
+              {t('Vazgeç', 'Cancel')}
             </button>
             <button
               type="submit"
@@ -181,7 +183,7 @@ export const WhiteLabelModal: React.FC<WhiteLabelModalProps> = ({ isOpen, onClos
               style={{ backgroundColor: primaryColor }}
             >
               <Check className="h-4 w-4" />
-              <span>Kaydet ve Uygula</span>
+              <span>{t('Kaydet ve Uygula', 'Save and Apply')}</span>
             </button>
           </div>
         </form>

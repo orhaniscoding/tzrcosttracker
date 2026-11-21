@@ -51,14 +51,15 @@ describe('@cost-core/web - UI Components Server-Side Render Tests', () => {
   });
 
 
-  it('labels v1 as partial restore and v2 as a separate full export', () => {
+  it('offers V2 export and accurately describes offline restore and operator-managed backups', () => {
     const html = renderToString(
-      React.createElement(BackupCenterView, { onRestored: async () => {} })
+      React.createElement(BackupCenterView)
     );
 
     expect(html).toContain('Tam Sistem Yedeği V2');
-    expect(html).toContain('Geri yükleme/rekey akışı henüz bu ekranda sunulmuyor.');
-    expect(html).toContain('V1 Biçimindeki Yedeği Kısmi Geri Yükle');
-    expect(html).toContain('V1 Kısmi Geri Yükleme');
+    expect(html).toContain('çevrimdışı');
+    expect(html).not.toContain('Otomatik Yedek Aktif');
+    expect(html).not.toContain('V1 Kısmi Geri Yükleme');
+    expect(html).not.toContain('%100 KVKK/GDPR');
   });
 });

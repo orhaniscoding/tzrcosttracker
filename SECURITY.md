@@ -1,19 +1,21 @@
-# Güvenlik bildirimi
+# Security policy
 
-Bu belge, TZR Cost Tracker güvenlik bulgularını bakımcıya özel olarak iletme yolunu açıklar.
+[Türkçe](docs/tr/SECURITY.md)
 
-## Açık bildirme
+## Report a vulnerability privately
 
-Depoda GitHub özel güvenlik bildirimi etkinse **Security → Report a vulnerability** yolunu kullanın.
+Sign in to GitHub and use **Security → Report a vulnerability** for TZR Cost Tracker. This opens a private report for the maintainer. [Open a private report](https://github.com/orhaniscoding/tzrcosttracker/security/advisories/new)
 
-Özel bildirim bağlantısı yoksa GitHub üzerinde yalnızca özel iletişim kanalı talep eden, hassas ayrıntı içermeyen bir issue açın. Açığın adımlarını, istismar kodunu, kimlik bilgilerini veya mali verileri herkese açık bir issue'ya eklemeyin. Bakımcı güvenli bir kanal sağladıktan sonra ayrıntıları özel olarak paylaşın.
+Include the affected version or commit, the deployment mode, a minimal description using synthetic data, and what changed across an access or data boundary. Include expected behavior, observed behavior, and estimated impact. Test only systems you own or have explicit permission to test.
 
-Bildirimde etkilenen sürüm/commit, sentetik verilerle tekrar adımları, beklenen/gerçek davranış ve olası etki yeterlidir. Gerçek veritabanı, yedek, fatura, rapor, token, anahtar veya kişisel bilgi göndermeyin. Yetkiniz olmayan sistemlerde test yapmayın.
+Keep vulnerability details private while the maintainer investigates. Redact credentials, tokens, private keys, personal or financial data, and live host details. Keep databases, backups, invoices, and reports out of the submission. If the reporting form is unavailable, open an issue requesting a private contact channel and leave the details for that channel.
 
-## Veri koruma kapsamı
+## Scope and security properties
 
-Şifreleme sunucuda seçili hassas alanlara uygulanır; tüm veritabanı ve uçtan uca şifreleme iddiası yoktur. Anahtar ve sunucu güvenliği ayrıca sağlanmalıdır. Farklı hedef/anahtarda tam atomik kurtarma ve internet reverse proxy düzeninin doğrulanması tamamlanmadan gerçek mali veriyle canlı kullanım onaylanmaz.
+The source candidate covers the browser client, Fastify API, local SQLite storage, and offline vault restore. Report defects that affect session revocation, role enforcement, project access, financial mutation integrity, input bounds, protected fields, backup validation, or recovery. Sensitive server operations should enforce current user and project permissions. Restore should validate the vault and hold the target data-directory lease before activation.
 
-## Sürüm desteği
+The server encrypts selected fields and can decrypt them with its keys. Protect the server, keys, database, backups, and browser sessions according to the deployment. V2 recovery covers the documented database schema and its supported relationships. Rehearse recovery and validate the HTTPS deployment with synthetic data before importing real financial records. [Architecture](docs/ARCHITECTURE.md) · [Operations](docs/OPERATIONS.md)
 
-Bu kaynak adayı için yanıt süresi veya destek süresi taahhüdü verilmemektedir.
+## Supported releases
+
+This repository currently publishes a source candidate. Identify the revision you tested. A security response time and supported release period have yet to be established.

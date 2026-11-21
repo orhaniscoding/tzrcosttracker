@@ -1,13 +1,13 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { createHash, timingSafeEqual } from 'node:crypto';
 function tokensMatch(a:string,b:string){const ha=createHash('sha256').update(a).digest();const hb=createHash('sha256').update(b).digest();return timingSafeEqual(ha,hb);}
-import { eq, sql } from 'drizzle-orm';
-import { z } from '@cost-core/types';
-import { SetupAlreadyCompletedError, users, whiteLabelSettings, type CostCoreDatabase } from '@cost-core/database';
+import { sql } from 'drizzle-orm';
+import { CurrencyCodeSchema, z } from '@cost-core/types';
+import { SetupAlreadyCompletedError, users, type CostCoreDatabase } from '@cost-core/database';
 
 export const SetupSchema = z.object({
   companyName: z.string().trim().min(1).max(100),
-  baseCurrency: z.string().min(3).max(3).default('TRY'),
+  baseCurrency: CurrencyCodeSchema.default('TRY'),
   admin: z.object({
     username: z.string().trim().min(3).max(50),
     fullName: z.string().trim().min(2).max(100),
@@ -24,25 +24,16 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
   const db = fastify.db as CostCoreDatabase;
 
   // 1. SİSTEM DURUMU (İlk Kurulum Gerekli mi?)
-  // Public read: one synchronous transaction with an existence-only user probe
-  // and an explicit two-column global settings projection. No projects are
-  // queried; a missing global row defaults in memory only (no seed/write/audit).
+  // The anonymous bootstrap probe exposes readiness only.
   fastify.get('/status', async (_request, reply) => {
     try {
       const status = db.transaction((tx) => {
         const existingUser = tx.select({ exists: sql<number>`1` }).from(users).limit(1).get();
-        const settings = tx
-          .select({ companyName: whiteLabelSettings.companyName, baseCurrency: whiteLabelSettings.baseCurrency })
-          .from(whiteLabelSettings)
-          .where(eq(whiteLabelSettings.id, 'global'))
-          .get();
         const hasUsers = !!existingUser;
         return {
           needsSetup: !hasUsers,
           isFirstRun: !hasUsers,
           hasUsers,
-          companyName: settings?.companyName ?? 'TZRCoster Finance',
-          baseCurrency: settings?.baseCurrency ?? 'TRY',
         };
       });
       return reply.send(status);
@@ -88,7 +79,7 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // 3. İLK KURULUM SİHİRBAZI ÇALIŞTIRMA (ONBOARDING EXECUTE)
-  fastify.post('/setup', async (request, reply) => {
+  fastify.post('/setup', { preHandler: fastify.rateLimit({ max: 15, timeWindow: 60_000, keyGenerator: request => 'setup:' + request.ip }) }, async (request, reply) => {
     const expected=config.bootstrapToken;const provided=request.headers['x-setup-token'];if(!expected||expected.length<32||typeof provided!=='string'||!tokensMatch(provided,expected)){return reply.status(403).send({error:'Kurulum yetkilendirmesi başarısız.'});}
     // Sadece sistemde henüz kullanıcı yokken çalışabilir (Yetkisiz kuruluma kapalı!)
     const existingUsers = await userRepo.listUsers();

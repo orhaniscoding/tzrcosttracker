@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24-bookworm-slim AS base
+FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH TURBO_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 CI=true
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@12.16.1
@@ -30,7 +30,7 @@ COPY packages/crypto/package.json packages/crypto/package.json
 COPY packages/database/package.json packages/database/package.json
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts && pnpm -r rebuild
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4000 DB_PATH=/data/cost-core.sqlite TURBO_TELEMETRY_DISABLED=1
 WORKDIR /app
 COPY --from=prod-deps /app ./
@@ -45,7 +45,7 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 CMD ["node", "apps/server/dist/index.js"]
 
-FROM nginx:stable-alpine AS web
+FROM nginx:stable-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3 AS web
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 80

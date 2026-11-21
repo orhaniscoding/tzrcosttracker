@@ -1,11 +1,9 @@
 const API_BASE = '/api';
 
-const getInitialToken = (): string | null => {
-  if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.getItem === 'function') {
-    return window.localStorage.getItem('costcore_token');
-  }
-  return null;
-};
+function clearLegacyToken(): void {
+  try { globalThis.window?.localStorage?.removeItem('costcore_token'); } catch { /* Storage can be disabled. */ }
+}
+clearLegacyToken();
 
 export class ApiError extends Error {
   status: number;
@@ -13,7 +11,7 @@ export class ApiError extends Error {
   constructor(message: string, status: number, code?: string) { super(message); this.name = 'ApiError'; this.status = status; this.code = code; }
 }
 export class ApiClient {
-  private static token: string | null = getInitialToken();
+  private static token: string | null = null;
   private static authGeneration = 0;
   private static authChangeListeners = new Set<() => void>();
   static getAuthGeneration(): number { return this.authGeneration; }
@@ -24,13 +22,7 @@ export class ApiClient {
   static setToken(token: string | null) {
     this.authGeneration += 1;
     this.token = token;
-    if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.setItem === 'function') {
-      if (token) {
-        window.localStorage.setItem('costcore_token', token);
-      } else {
-        window.localStorage.removeItem('costcore_token');
-      }
-    }
+    clearLegacyToken();
     [...this.authChangeListeners].forEach((listener) => { try { listener(); } catch {} });
   }
 
@@ -112,7 +104,7 @@ export class ApiClient {
 
   // Transactions
   static getTransactions = (query = '') => this.request(`/transactions${query ? `?${query}` : ''}`);
-  static createTransaction = (data: any) => this.request('/transactions', { method: 'POST', body: JSON.stringify(data) });
+  static createTransaction = (data: any, idempotencyKey?: string) => this.request('/transactions', { method: 'POST', headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined, body: JSON.stringify(data) });
   static updateTransaction = (id: string, data: any) => this.request(`/transactions/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
   static deleteTransaction = (id: string, permanent = false) => this.request(`/transactions/${encodeURIComponent(id)}${permanent ? '?permanent=true' : ''}`, { method: 'DELETE' });
   static getTrash = (projectId?: string | null) => this.request(`/transactions/trash${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`);
@@ -136,9 +128,7 @@ export class ApiClient {
   static getIndustryTemplates = () => this.request('/system/templates');
 
   // Encrypted Backup (.tzrvault)
-  static exportBackup = (password: string) => this.request('/backup/export', { method: 'POST', body: JSON.stringify({ backupPassword: password }) });
   static exportFullBackupV2 = (password: string) => this.request('/backup/export-v2', { method: 'POST', body: JSON.stringify({ backupPassword: password }) });
-  static importBackup = (data: any) => this.request('/backup/import', { method: 'POST', body: JSON.stringify(data) });
 
   // Audit
   static getAuditLogs = (limit = 100) => this.request(`/audit?limit=${limit}`);

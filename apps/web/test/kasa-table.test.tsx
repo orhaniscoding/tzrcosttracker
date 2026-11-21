@@ -56,9 +56,19 @@ describe('Kasa income records', () => {
   it('guards the add callback and hides stale labels while loading', () => {
     const onAddKasaEntry = vi.fn();
     const findButton = (node: any): any => { if (!node || typeof node !== 'object') return undefined; if (node.type === 'button') return node; for (const child of React.Children.toArray(node.props?.children)) { const found = findButton(child); if (found) return found; } return undefined; };
-    expect(findButton(KasaTable({ transactions: rows, onAddKasaEntry, canMutate: false }))).toBeUndefined();
-    expect(findButton(KasaTable({ transactions: rows, onAddKasaEntry, canMutate: true, isLoading: true }))).toBeUndefined();
-    const button = findButton(KasaTable({ transactions: rows, onAddKasaEntry, canMutate: true }));
+    function captureButton(canMutate: boolean, isLoading = false) {
+      let button: ReturnType<typeof findButton>;
+      function Capture() {
+        const tree = KasaTable({ transactions: rows, onAddKasaEntry, canMutate, isLoading });
+        button = findButton(tree);
+        return tree;
+      }
+      renderToStaticMarkup(<Capture />);
+      return button;
+    }
+    expect(captureButton(false)).toBeUndefined();
+    expect(captureButton(true, true)).toBeUndefined();
+    const button = captureButton(true);
     expect(button).toBeDefined(); button.props.onClick(); expect(onAddKasaEntry).toHaveBeenCalledTimes(1);
     const loading = render(rows, { isLoading: true, canMutate: true });
     expect(loading).not.toContain('ham gelir kaydı'); expect(loading).not.toContain('pending'); expect(loading).not.toContain('Şahıs finansmanı');

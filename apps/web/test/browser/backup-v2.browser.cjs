@@ -23,7 +23,7 @@ async function run() {
         import { createRoot } from 'react-dom/client';
         import { BackupCenterView } from './src/components/BackupCenterView.tsx';
         createRoot(document.getElementById('root')).render(
-          <BackupCenterView onRestored={async () => {}} />
+          <BackupCenterView />
         );`,
       resolveDir: web,
       loader: 'tsx',
@@ -63,12 +63,10 @@ async function run() {
     await page.goto(`${origin}/`);
     assert.equal(page.url(), `${origin}/`);
     assert.equal(await page.title(), 'Cost Tracker backup QA');
-    const legacy = page.getByPlaceholder('En az 6 karakterli güçlü parola...', { exact: true });
+    assert.equal(await page.getByRole('checkbox').count(), 0);
+    await page.getByText('Yedekleri saklama ve geri yükleme', { exact: true }).waitFor();
     const v2 = page.getByLabel('V2 yedek parolası', { exact: true });
-    const downloadButton = page.getByRole('button', { name: 'Tam Sistem Yedeği V2 İndir', exact: true });
-    await page.getByText('V1 Biçimindeki Yedeği Kısmi Geri Yükle', { exact: true }).waitFor();
-    await legacy.fill('synthetic-legacy-password');
-    assert.equal(await downloadButton.isEnabled(), false, 'V1 input must not enable V2');
+    const downloadButton = page.getByRole('button', { name: 'V2 yedeğini indir', exact: true });
     await v2.fill('12345678901');
     assert.equal(await downloadButton.isEnabled(), false, '11 bytes must be rejected');
     await v2.fill('ç'.repeat(129));
@@ -76,16 +74,14 @@ async function run() {
     const password = 'ç'.repeat(6);
     await v2.fill(password);
     assert.equal(await downloadButton.isEnabled(), true, 'A 12-byte V2 password must enable the download');
-    assert.equal(await legacy.inputValue(), 'synthetic-legacy-password');
     assert.equal(requests.length, 0);
 
     const [download] = await Promise.all([page.waitForEvent('download'), downloadButton.click()]);
     assert.equal(download.suggestedFilename(), filename);
     assert.equal(await fs.readFile(await download.path(), 'utf8'), vaultData);
     assert.deepEqual(requests, [{ method: 'POST', body: { backupPassword: password } }]);
-    await page.getByText('Tam v2 sistem yedeği indirildi (3 kayıt, 11 tablo).', { exact: true }).waitFor();
+    await page.getByText('Şifreli V2 yedeği indirildi.', { exact: true }).waitFor();
     assert.equal(await v2.inputValue(), '');
-    assert.equal(await legacy.inputValue(), 'synthetic-legacy-password');
     assert.deepEqual(unexpected, []);
     assert.deepEqual(errors, []);
     if (screenshot) await page.screenshot({ path: screenshot, fullPage: true });
