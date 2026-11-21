@@ -46,7 +46,8 @@ node scripts/run-docker.mjs down
 2. Kuruluş adını ve ana para birimini girin. İlk projenin adını da verebilirsiniz.
 3. Güçlü bir parolayla ilk yöneticiyi oluşturun ve ekran kilidi için kişisel dört haneli PIN belirleyin. Hazır giriş bilgileri yoktur.
 4. Yerel başlatıcının gösterdiği dosyadaki `BOOTSTRAP_TOKEN` değerini girin. Docker için özel bir terminalde `node scripts/run-docker.mjs setup-key` komutunu kullanın. Anahtarı paylaşılan çıktılara eklemeyin. Sektör şablonunu seçip kurulumu bitirin.
-5. [Kullanıcı kılavuzu](USER-GUIDE.md) ile devam edin. Web adresindeki `/health` yanıtını kontrol edin ve kullanımdan önce rapor ve yedek akışlarını sentetik verilerle deneyin.
+5. İlk yönetici oluşturulduktan sonra tek kullanımlık kurulum anahtarını kaldırın. Yerel kurulumda başlatıcıyı Ctrl+C ile durdurup `.tzr-cost-tracker/local/.env` dosyasındaki (özel veri dizini seçtiyseniz `$COSTCORE_DATA_DIR/.env`) yalnızca `BOOTSTRAP_TOKEN` satırını silin. Docker kurulumunda `node scripts/run-docker.mjs down` komutunu çalıştırın, `.cache/costcore-docker/local.env` dosyasındaki yalnızca `BOOTSTRAP_TOKEN` satırını silin ve yeniden başlatın. `JWT_SECRET`, `MASTER_KEY` ve `BLIND_INDEX_PEPPER` değerlerini değiştirmeyin.
+6. [Kullanıcı kılavuzu](USER-GUIDE.md) ile devam edin. Web adresindeki `/health` yanıtını kontrol edin ve kullanımdan önce rapor ve yedek akışlarını sentetik verilerle deneyin.
 
 ## Sorun giderme
 

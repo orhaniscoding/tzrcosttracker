@@ -20,6 +20,8 @@ node scripts/run-docker.mjs setup-key
 
 Başlatıcı kaynak dizininin yolundan üretilen Compose proje adını gösterir. Kurtarma için bu adı kaydedin. Bağımsız anahtarları ve seçilen portu `.cache/costcore-docker/local.env` dosyasında saklar ve sonraki çalıştırmalarda aynı dosyayı kullanır. Dosya eksik ve eşleşen volume mevcutsa başlatıcı yeni anahtar üretmeden durur. Env dosyasını özel tutun ve kurulum kayıtlarıyla birlikte yedekleyin. Windows'ta dosyaya ve üst dizinine erişimi kısıtlayın. Kaynak dizinini taşımak proje adını değiştirebilir. Başka konumdan başlatmadan önce veri volume'ünü kontrol edin.
 
+Kaynak kopyasını taşıdıktan sonra `local.env` dosyası eksikse ancak eski veri volume'ü duruyorsa, başlamadan önce `COSTCORE_COMPOSE_PROJECT` değişkenini kaydettiğiniz eski proje adıyla ayarlayın. Eski proje adını doğrulayamıyorsanız mevcut volume'ü koruyun ve eski anahtar dosyasını bulun; tahmini yeni bir proje adıyla başlatmaya çalışmayın.
+
 Adlandırılmış veri volume'ünü koruyarak konteynerleri ve ağı durdurup kaldırın:
 
 ```sh

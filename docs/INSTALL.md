@@ -46,7 +46,8 @@ node scripts/run-docker.mjs down
 2. Enter the organization and base currency. You can also name the first project.
 3. Create the administrator with a strong password and personal four-digit screen unlock PIN. There are no preset sign-in credentials.
 4. Enter the `BOOTSTRAP_TOKEN` from the key file named by the native launcher, or use `node scripts/run-docker.mjs setup-key` in a private terminal. Keep the token out of shared transcripts. Choose an industry template and finish setup.
-5. Continue with the [user guide](USER-GUIDE.md). Verify `/health` on your web URL and exercise reports and backup with synthetic data before use.
+5. After the first administrator is created, remove the one-time setup token. For a native installation, stop the launcher with Ctrl+C and delete only the `BOOTSTRAP_TOKEN` line from `.tzr-cost-tracker/local/.env` (or `$COSTCORE_DATA_DIR/.env` if you selected a custom data directory). For Docker, run `node scripts/run-docker.mjs down`, delete only the `BOOTSTRAP_TOKEN` line from `.cache/costcore-docker/local.env`, then start it again. Keep `JWT_SECRET`, `MASTER_KEY`, and `BLIND_INDEX_PEPPER` unchanged.
+6. Continue with the [user guide](USER-GUIDE.md). Verify `/health` on your web URL and exercise reports and backup with synthetic data before use.
 
 ## Troubleshooting
 
