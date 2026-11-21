@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS base
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH TURBO_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 CI=true
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@12.16.1
@@ -30,7 +30,7 @@ COPY packages/crypto/package.json packages/crypto/package.json
 COPY packages/database/package.json packages/database/package.json
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts && pnpm -r rebuild
 
-FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4000 DB_PATH=/data/cost-core.sqlite TURBO_TELEMETRY_DISABLED=1
 WORKDIR /app
 COPY --from=prod-deps /app ./
