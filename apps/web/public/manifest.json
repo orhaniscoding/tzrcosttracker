@@ -1,7 +1,7 @@
 {
-  "name": "TZRCoster - Maliyet & Finans Yönetimi",
-  "short_name": "TZRCoster",
-  "description": "Askeri düzeyde şifreli, modüler ve sektör bağımsız maliyet ve finans takip platformu",
+  "name": "TZR Cost Tracker",
+  "short_name": "TZR Costs",
+  "description": "Self-hosted project costs, cash and payments",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#020617",

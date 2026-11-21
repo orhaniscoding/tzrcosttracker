@@ -1,4 +1,6 @@
+import { formatCurrency } from '../format-currency.js';
 import React, { useState } from 'react';
+import { useLocale } from '../context/LocaleContext.js';
 import {
   Calendar,
   Download,
@@ -38,6 +40,8 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
   isLoading = false,
 }) => {
   const { settings } = useTheme();
+  const { t, intlLocale } = useLocale();
+  const localize = t;
   const currency = baseCurrency || settings.baseCurrency || 'TRY';
 
   const [activeTab, setActiveTab] = useState<'date_range' | 'daily' | 'monthly_yearly'>('date_range');
@@ -62,11 +66,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
   const [yearDraft, setYearDraft] = useState(String(now.getFullYear()).padStart(4, '0'));
 
   const formatMoney = (val: number, code = currency) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: code,
-      maximumFractionDigits: 2,
-    }).format(val || 0);
+    return formatCurrency(intlLocale, code, val || 0, 2);
   };
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
@@ -91,8 +91,8 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
       setStartDate(localDate(new Date(d.getFullYear(), 0, 1)));
       setEndDate(localDate(d));
     } else if (range === 'all') {
-      setStartDate('2020-01-01');
-      setEndDate('2035-12-31');
+      setStartDate('');
+      setEndDate('');
     }
   };
 
@@ -141,11 +141,11 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
       objectUrl = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
       link = document.createElement('a');
       link.href = objectUrl;
-      link.download = 'TZR_Cost_Tracker_Rapor_' + startDate + '_' + endDate + '.csv';
+      link.download = 'TZR_Cost_Tracker_Rapor_' + (startDate || 'start') + '_' + (endDate || 'end') + '.csv';
       document.body.appendChild(link);
       link.click();
     } catch {
-      alert('Rapor indirilemedi. L\u00fctfen tekrar deneyin.');
+      alert(t('Rapor indirilemedi. Lütfen tekrar deneyin.', 'Could not download the report. Please try again.'));
     } finally {
       try {
         link?.remove();
@@ -158,7 +158,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
     }
   };
 
-  if (isLoading) return <div role={'status'}>Rapor yükleniyor...</div>;
+  if (isLoading) return <div role={'status'}>{t('Rapor yükleniyor...', 'Loading report...')}</div>;
 
   return (
     <div className="space-y-6">
@@ -169,15 +169,15 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-blue-600" />
               <span>
-                {currentTab === 'date_range' && 'Özel Tarih Aralıklı Maliyet Raporu'}
-                {currentTab === 'daily' && 'Günlük mali hareket özeti'}
-                {currentTab === 'monthly_yearly' && 'Aylık ve yıllık mali hareket özeti'}
+                {currentTab === 'date_range' && t('Özel Tarih Aralıklı Maliyet Raporu', 'Cost report for a custom date range')}
+                {currentTab === 'daily' && t('Günlük mali hareket özeti', 'Daily financial summary')}
+                {currentTab === 'monthly_yearly' && t('Aylık ve yıllık mali hareket özeti', 'Monthly and annual financial summary')}
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              {currentTab === 'date_range' && 'Seçtiğiniz tarih aralığı, kategori ve tedarikçiye göre filtrelenmiş gelir/gider dökümü'}
-              {currentTab === 'daily' && 'Yüklenen kayıtlardan, seçilen güne göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.'}
-              {currentTab === 'monthly_yearly' && 'Yüklenen kayıtlardan, seçilen yıla göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.'}
+              {currentTab === 'date_range' && t('Seçtiğiniz tarih aralığı, kategori ve tedarikçiye göre filtrelenmiş gelir/gider dökümü', 'Income and expenses filtered by date range, category, and supplier')}
+              {currentTab === 'daily' && t('Yüklenen kayıtlardan, seçilen güne göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.', 'Calculated from loaded records for the selected day. Cash flow excludes opening and current account balances.')}
+              {currentTab === 'monthly_yearly' && t('Yüklenen kayıtlardan, seçilen yıla göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.', 'Calculated from loaded records for the selected year. Cash flow excludes opening and current account balances.')}
             </p>
           </div>
 
@@ -192,7 +192,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                📅 Özel Tarih Aralığı
+                {localize("📅 Özel Tarih Aralığı", "📅 Custom date range")}
               </button>
               <button
                 onClick={() => setActiveTab('daily')}
@@ -202,7 +202,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                📆 Günlük Kasa
+                {localize("📆 Günlük Kasa", "📆 Daily cash report")}
               </button>
               <button
                 onClick={() => setActiveTab('monthly_yearly')}
@@ -212,7 +212,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                🗓️ Aylık ve yıllık özet
+                {localize("🗓️ Aylık ve yıllık özet", "🗓️ Monthly and annual summary")}
               </button>
             </div>
           )}
@@ -239,32 +239,32 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                     onClick={() => setQuickRange('last_month')}
                     className="px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium text-[11px]"
                   >
-                    Geçen Ay
+                    {localize("Geçen Ay", "Last month")}
                   </button>
                   <button
                     onClick={() => setQuickRange('last_30_days')}
                     className="px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium text-[11px]"
                   >
-                    Son 30 Gün
+                    {localize("Son 30 Gün", "Last 30 days")}
                   </button>
                   <button
                     onClick={() => setQuickRange('this_year')}
                     className="px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium text-[11px]"
                   >
-                    Bu Yıl
+                    {localize("Bu Yıl", "This year")}
                   </button>
                   <button
                     onClick={() => setQuickRange('all')}
                     className="px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium text-[11px]"
                   >
-                    Tüm Zamanlar
+                    {localize("Tüm Zamanlar", "All time")}
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 <div className="sm:col-span-3">
-                  <label className="block text-slate-600 font-medium mb-1">Başlangıç Tarihi</label>
+                  <label className="block text-slate-600 font-medium mb-1">{t('Başlangıç Tarihi', 'Start Date')}</label>
                   <input
                     type="date"
                     value={startDate}
@@ -274,7 +274,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                 </div>
 
                 <div className="sm:col-span-3">
-                  <label className="block text-slate-600 font-medium mb-1">Bitiş Tarihi</label>
+                  <label className="block text-slate-600 font-medium mb-1">{t('Bitiş Tarihi', 'End Date')}</label>
                   <input
                     type="date"
                     value={endDate}
@@ -284,13 +284,13 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-slate-600 font-medium mb-1">Kategori Filtresi</label>
+                  <label className="block text-slate-600 font-medium mb-1">{t('Kategori Filtresi', 'Category Filter')}</label>
                   <select
                     value={filterCategoryId}
                     onChange={(e) => setFilterCategoryId(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-800 focus:outline-none focus:border-blue-600"
                   >
-                    <option value="">Tümü ({categories.length})</option>
+                    <option value="">{localize("Tümü (", "All (")}{categories.length})</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.parentId ? `› ${c.name}` : c.name}
@@ -300,23 +300,23 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-slate-600 font-medium mb-1">Ödeme Durumu</label>
+                  <label className="block text-slate-600 font-medium mb-1">{t('Ödeme Durumu', 'Payment Status')}</label>
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-800 focus:outline-none focus:border-blue-600"
                   >
-                    <option value="all">Tüm Durumlar</option>
-                    <option value="paid">✅ Sadece Peşin Ödenenler</option>
-                    <option value="pending">⏳ Sadece Vadeli / Bekleyenler</option>
+                    <option value="all">{t('Tüm Durumlar', 'All Statuses')}</option>
+                    <option value="paid">{t('✅ Sadece Peşin Ödenenler', '✅ Paid Upfront Only')}</option>
+                    <option value="pending">{t('⏳ Sadece Vadeli / Bekleyenler', '⏳ Deferred / Pending Only')}</option>
                   </select>
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-slate-600 font-medium mb-1">Cari / Tedarikçi</label>
+                  <label className="block text-slate-600 font-medium mb-1">{t('Cari / Tedarikçi', 'Account / Supplier')}</label>
                   <input
                     type="text"
-                    placeholder="Firma ara..."
+                    placeholder={t('Firma ara...', 'Search company...')}
                     value={filterParty}
                     onChange={(e) => setFilterParty(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:border-blue-600"
@@ -326,21 +326,21 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
             </div>
 
             {/* Dönem Özet KPI Kartları */}
-            <section aria-label={'Dönem finansal özeti'} className={'space-y-3'}>
-              <p>Yüklenen kayıtlardan, seçili filtrelere göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.</p>
-              {rangeFinance.excludedCurrencies.length > 0 && <p role={'alert'}>Ana para birimi özeti kısmidir; diğer para birimleri ayrı gösterilir: {rangeFinance.excludedCurrencies.join(', ')}</p>}
+            <section aria-label={t('Dönem finansal özeti', 'Financial summary for the period')} className={'space-y-3'}>
+              <p>{localize("Yüklenen kayıtlardan, seçili filtrelere göre hesaplanır. Nakit akışı açılış ve güncel cüzdan bakiyelerini içermez.", "Calculated from the loaded records and selected filters. Cash flow excludes opening and current account balances.")}</p>
+              {rangeFinance.excludedCurrencies.length > 0 && <p role={'alert'}>{localize("Ana para birimi özeti kısmidir; diğer para birimleri ayrı gösterilir: ", "The main summary covers the base currency only. Other currencies appear separately: ")}{rangeFinance.excludedCurrencies.join(', ')}</p>}
               {[currency, ...rangeFinance.excludedCurrencies].map((code) => {
                 const totals = code === currency ? rangeFinance : rangeFinance.byCurrency[code];
                 return (
-                  <section key={code} aria-label={`Finansal özet ${code}`} className={'rounded-xl border border-slate-200 p-4'}>
-                    <h3 className={'font-bold'}>{code}{code === currency ? ' (Ana para birimi)' : ''}</h3>
+                  <section key={code} aria-label={`${t('Finansal özet', 'Financial summary')} ${code}`} className={'rounded-xl border border-slate-200 p-4'}>
+                    <h3 className={'font-bold'}>{code}{code === currency ? t(' (Ana para birimi)', ' (Base currency)') : ''}</h3>
                     <dl className={'grid grid-cols-1 sm:grid-cols-3 gap-3'}>
-                      <div><dt>Tanınan gelir</dt><dd>{formatMoney(totals.totalIncome, code)}</dd></div>
-                      <div><dt>Tanınan gider</dt><dd>{formatMoney(totals.totalExpense, code)}</dd></div>
-                      <div><dt>Bekleyen şirket borcu</dt><dd>{formatMoney(totals.totalPendingExpense, code)}</dd></div>
+                      <div><dt>{localize("Tanınan gelir", "Recognized income")}</dt><dd>{formatMoney(totals.totalIncome, code)}</dd></div>
+                      <div><dt>{localize("Tanınan gider", "Recognized expenses")}</dt><dd>{formatMoney(totals.totalExpense, code)}</dd></div>
+                      <div><dt>{localize("Bekleyen şirket borcu", "Outstanding company debt")}</dt><dd>{formatMoney(totals.totalPendingExpense, code)}</dd></div>
                       <div><dt>Faaliyet neti</dt><dd>{formatMoney(totals.netBalance, code)}</dd></div>
-                      <div><dt>Dönem net nakit akışı</dt><dd>{formatMoney(totals.cashFlowNet, code)}</dd></div>
-                      <div><dt>Tanınan işlem adedi</dt><dd>{totals.transactionCount}</dd></div>
+                      <div><dt>{localize("Dönem net nakit akışı", "Net cash flow for the period")}</dt><dd>{formatMoney(totals.cashFlowNet, code)}</dd></div>
+                      <div><dt>{localize("Tanınan işlem adedi", "Recognized transactions")}</dt><dd>{totals.transactionCount}</dd></div>
                     </dl>
                   </section>
                 );
@@ -349,7 +349,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
             {/* Dışa Aktarma Butonları & Döküm Başlığı */}
             <div className="flex items-center justify-between pt-2">
               <span className="text-xs font-bold text-slate-800">
-                Filtrelenen ham kayıtlar ({rangeFilteredTransactions.length} kayıt)
+                {localize("Filtrelenen ham kayıtlar (", "Filtered transaction records (")}{rangeFilteredTransactions.length}{localize(" kayıt)", " records)")}
               </span>
 
               <div className="flex items-center gap-2">
@@ -358,7 +358,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-medium shadow-sm transition"
                 >
                   <Printer className="h-3.5 w-3.5 text-slate-500" />
-                  <span>Yazdır / PDF</span>
+                  <span>{t('Yazdır / PDF', 'Print / PDF')}</span>
                 </button>
                 <button
                   onClick={exportRangeCSV}
@@ -366,30 +366,30 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  <span>Excel / CSV İndir</span>
+                  <span>{t('Excel / CSV İndir', 'Download Excel / CSV')}</span>
                 </button>
               </div>
             </div>
 
             {/* Filtrelenmiş Liste Tablosu */}
-            <div className="border border-slate-200 rounded-xl overflow-x-auto max-w-full" role="region" aria-label="Filtrelenen ham kayıtlar tablosu" tabIndex={0}>
+            <div className="border border-slate-200 rounded-xl overflow-x-auto max-w-full" role="region" aria-label={localize("Filtrelenen ham kayıtlar tablosu", "Filtered transaction table")} tabIndex={0}>
               <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold uppercase border-b border-slate-200">
-                    <th className="py-2.5 px-3 w-24">Tarih</th>
-                    <th className="py-2.5 px-3 w-28">İşlem Türü</th>
-                    <th className="py-2.5 px-3">Kalem / Açıklama</th>
-                    <th className="py-2.5 px-3 w-36">Kategori</th>
-                    <th className="py-2.5 px-3 w-32">Cari / Tedarikçi</th>
+                    <th className="py-2.5 px-3 w-24">{localize("Tarih", "Date")}</th>
+                    <th className="py-2.5 px-3 w-28">{localize("İşlem Türü", "Transaction type")}</th>
+                    <th className="py-2.5 px-3">{localize("Kalem / Açıklama", "Item / Description")}</th>
+                    <th className="py-2.5 px-3 w-36">{localize("Kategori", "Category")}</th>
+                    <th className="py-2.5 px-3 w-32">{localize("Cari / Tedarikçi", "Counterparty / Supplier")}</th>
                     <th className="py-2.5 px-3 w-28 text-center">Durum</th>
-                    <th className="py-2.5 px-3 w-32 text-right">Tutar</th>
+                    <th className="py-2.5 px-3 w-32 text-right">{localize("Tutar", "Amount")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {rangeFilteredTransactions.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-slate-500">
-                        Seçilen kriterlere uygun herhangi bir kayıt bulunamadı.
+                        {localize("Seçilen kriterlere uygun herhangi bir kayıt bulunamadı.", "No records match the selected filters.")}
                       </td>
                     </tr>
                   ) : (
@@ -422,7 +422,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                             >
                               {({ approved: 'Onaylandı', pending: 'Bekliyor', paid: 'Ödendi', draft: 'Taslak', rejected: 'Reddedildi' } as Record<string, string>)[t.status] || t.status} / {t.isPaid ? 'Ödendi' : 'Ödenmedi'}
                             </span>
-                            {t.deletedAt && <span className="block text-xs font-semibold text-rose-700">Silinmiş — toplamlara dahil değil</span>}
+                            {t.deletedAt && <span className="block text-xs font-semibold text-rose-700">{localize("Silinmiş — toplamlara dahil değil", "Deleted — excluded from totals")}</span>}
                           </td>
                           <td
                             className={`py-2 px-3 text-right font-bold font-mono ${
@@ -448,7 +448,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl p-4">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-blue-600" />
-                <span className="text-xs font-bold text-slate-800">Raporlanacak Günü Seçin:</span>
+                <span className="text-xs font-bold text-slate-800">{localize("Raporlanacak Günü Seçin:", "Report date:")}</span>
                 <input
                   type="date"
                   value={selectedDay}
@@ -466,13 +466,13 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                   }}
                   className="px-3 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium"
                 >
-                  ◀ Önceki Gün
+                  {localize("◀ Önceki Gün", "◀ Previous day")}
                 </button>
                 <button
                   onClick={() => setSelectedDay(todayStr)}
                   className="px-3 py-1 rounded bg-blue-50 border border-blue-300 text-blue-700 font-semibold"
                 >
-                  Bugün
+                  {localize("Bugün", "Today")}
                 </button>
                 <button
                   onClick={() => {
@@ -482,32 +482,32 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                   }}
                   className="px-3 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium"
                 >
-                  Sonraki Gün ▶
+                  {localize("Sonraki Gün ▶", "Next day ▶")}
                 </button>
               </div>
             </div>
 
-            {dayFinance.excludedCurrencies.length > 0 && <p role={'alert'}>Ana para birimi özeti kısmidir; diğer para birimleri ayrı gösterilir: {dayFinance.excludedCurrencies.join(', ')}. Dönüşüm yapılmaz.</p>}
+            {dayFinance.excludedCurrencies.length > 0 && <p role={'alert'}>{localize("Ana para birimi özeti kısmidir; diğer para birimleri ayrı gösterilir: ", "The main summary covers the base currency only. Other currencies appear separately: ")}{dayFinance.excludedCurrencies.join(', ')}{localize(". Dönüşüm yapılmaz.", ". No currency conversion is applied.")}</p>}
             {[currency, ...dayFinance.excludedCurrencies].map((code) => {
               const totals = code === currency ? dayFinance : dayFinance.byCurrency[code];
               return (
-                <section aria-label={'Günlük finansal özet ' + code} key={code} className={'min-w-0 rounded-xl border border-slate-200 bg-white p-4'}>
+                <section aria-label={t('Günlük finansal özet ', 'Daily financial summary ') + code} key={code} className={'min-w-0 rounded-xl border border-slate-200 bg-white p-4'}>
                   <h3 className={'font-bold mb-3'}>{code}</h3>
                   <dl className={'grid grid-cols-1 sm:grid-cols-2 gap-3 break-words'} style={{ overflowWrap: 'anywhere' }}>
-                    <div><dt>Tanınan gelir</dt><dd>{formatMoney(totals.totalIncome, code)}</dd></div>
-                    <div><dt>Tanınan gider</dt><dd>{formatMoney(totals.totalExpense, code)}</dd></div>
+                    <div><dt>{localize("Tanınan gelir", "Recognized income")}</dt><dd>{formatMoney(totals.totalIncome, code)}</dd></div>
+                    <div><dt>{localize("Tanınan gider", "Recognized expenses")}</dt><dd>{formatMoney(totals.totalExpense, code)}</dd></div>
                     <div><dt>Faaliyet neti</dt><dd>{formatMoney(totals.netBalance, code)}</dd></div>
-                    <div><dt>Günün net şirket nakit akışı</dt><dd>{formatMoney(totals.cashFlowNet, code)}</dd></div>
-                    <div><dt>Bekleyen şirket borcu</dt><dd>{formatMoney(totals.totalPendingExpense, code)}</dd></div>
-                    <div><dt>Şahıs tarafından ödenen gider</dt><dd>{formatMoney(totals.personFundedExpenseTotal, code)}</dd></div>
-                    <div><dt>Tanınan işlem adedi</dt><dd>{totals.transactionCount}</dd></div>
+                    <div><dt>{localize("Günün net şirket nakit akışı", "Daily net company cash flow")}</dt><dd>{formatMoney(totals.cashFlowNet, code)}</dd></div>
+                    <div><dt>{localize("Bekleyen şirket borcu", "Outstanding company debt")}</dt><dd>{formatMoney(totals.totalPendingExpense, code)}</dd></div>
+                    <div><dt>{localize("Şahıs tarafından ödenen gider", "Out-of-pocket expenses")}</dt><dd>{formatMoney(totals.personFundedExpenseTotal, code)}</dd></div>
+                    <div><dt>{localize("Tanınan işlem adedi", "Recognized transactions")}</dt><dd>{totals.transactionCount}</dd></div>
                   </dl>
                 </section>
               );
             })}
-            <section aria-label={'Günün ham kayıtları'} className={'min-w-0 rounded-xl border border-slate-200 bg-white p-4'}>
-              <h3 className={'font-bold mb-3'}>Günün ham kayıtları ({dayTransactions.length} ham kayıt)</h3>
-              {dayTransactions.length === 0 ? <p>Bu gün için kayıt bulunamadı.</p> : (
+            <section aria-label={t('Günün ham kayıtları', 'Daily transaction records')} className={'min-w-0 rounded-xl border border-slate-200 bg-white p-4'}>
+              <h3 className={'font-bold mb-3'}>{localize("Günün ham kayıtları (", "Daily transaction records (")}{dayTransactions.length}{localize(" ham kayıt)", " records)")}</h3>
+              {dayTransactions.length === 0 ? <p>{localize("Bu gün için kayıt bulunamadı.", "There are no records for this date.")}</p> : (
                 <ul className={'divide-y divide-slate-100'}>
                   {dayTransactions.map((t) => {
                     const status = t.status === 'approved' ? 'Onaylandı' : t.status === 'pending' ? 'Bekliyor' : t.status === 'paid' ? 'Ödendi' : t.status === 'draft' ? 'Taslak' : t.status === 'rejected' ? 'Reddedildi' : 'Bilinmeyen durum: ' + String(t.status);
@@ -518,8 +518,8 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                         <div className={'font-semibold'}>{t.title}</div>
                         {t.party && <div>{t.party}</div>}
                         <div>{type} · {status} · {t.isPaid ? 'Ödendi' : 'Ödenmedi'}</div>
-                        {oto && <div>Şahıs finansmanı — OTO yansıması</div>}
-                        {t.deletedAt && <div>Silinmiş — toplamlara dahil değil</div>}
+                        {oto && <div>{localize("Şahıs finansmanı — OTO yansıması", "Personal funds offset")}</div>}
+                        {t.deletedAt && <div>{localize("Silinmiş — toplamlara dahil değil", "Deleted — excluded from totals")}</div>}
                         <div className={'font-mono font-bold'}>{formatMoney(t.amount, t.currency)} ({t.currency})</div>
                       </li>
                     );
@@ -534,23 +534,23 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
         {currentTab === 'monthly_yearly' && (
           <div className="pt-4 space-y-5 min-w-0">
             <div className="flex flex-wrap items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <label htmlFor="report-year" className="text-xs font-bold text-slate-800">Rapor yılı</label>
+              <label htmlFor="report-year" className="text-xs font-bold text-slate-800">{localize("Rapor yılı", "Report year")}</label>
               <input id="report-year" type="text" inputMode="numeric" maxLength={4} value={yearDraft} onChange={(event) => {
                 const draft = event.target.value;
                 setYearDraft(draft);
                 if (/^[0-9]{4}$/.test(draft) && Number(draft) >= 1 && Number(draft) <= 9999) setSelectedYear(Number(draft));
               }} className="w-28 max-w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
             </div>
-            {yearFinance.mixedCurrency && <p className="text-sm text-amber-800">Baz para birimi özeti kısmidir; diğer para birimleri ayrı gösterilir, dönüşüm yapılmaz.</p>}
+            {yearFinance.mixedCurrency && <p className="text-sm text-amber-800">{localize("Baz para birimi özeti kısmidir; diğer para birimleri ayrı gösterilir, dönüşüm yapılmaz.", "The main summary covers the base currency only. Other currencies are shown separately without conversion.")}</p>}
             {yearCurrencies.map((code) => {
               const annual = yearFinance.byCurrency[code] ?? computeReportFinance(yearTransactions, code);
               return (
                 <section key={code} className="min-w-0 max-w-full space-y-2">
-                  <h3 className="font-bold text-slate-900">{code} — {yearKey} {code === currency ? '(baz para birimi)' : ''}</h3>
-                  <div aria-label={`Aylık mali özet ${code} ${yearKey}`} role="region" tabIndex={0} className="overflow-x-auto max-w-full min-w-0 border border-slate-200 rounded-xl">
+                  <h3 className="font-bold text-slate-900">{code} — {yearKey} {code === currency ? localize('(baz para birimi)', '(base currency)') : ''}</h3>
+                  <div aria-label={`${t('Aylık mali özet', 'Monthly financial summary')} ${code} ${yearKey}`} role="region" tabIndex={0} className="overflow-x-auto max-w-full min-w-0 border border-slate-200 rounded-xl">
                     <table className="w-full min-w-[1000px] text-left text-xs border-collapse">
-                      <caption>{code} — {yearKey} aylık ve yıllık mali hareketler</caption>
-                      <thead><tr className="bg-slate-100 text-slate-700">{['Ay', 'Tanınan gelir', 'Tanınan gider', 'Bekleyen şirket borcu', 'Faaliyet neti', 'Net şirket nakit akışı', 'Tanınan işlem adedi', 'Yıllık gider payı'].map((label) => <th key={label} scope="col" className="p-3">{label}</th>)}</tr></thead>
+                      <caption>{code} — {yearKey}{localize(" aylık ve yıllık mali hareketler", " monthly and annual financial activity")}</caption>
+                      <thead><tr className="bg-slate-100 text-slate-700">{[t('Ay', 'Month'), t('Tanınan gelir', 'Recognized income'), t('Tanınan gider', 'Recognized expenses'), t('Bekleyen şirket borcu', 'Outstanding company debt'), t('Faaliyet neti', 'Operating net'), t('Net şirket nakit akışı', 'Net company cash flow'), t('Tanınan işlem adedi', 'Recognized transactions'), t('Yıllık gider payı', 'Share of annual expenses')].map((label) => <th key={label} scope="col" className="p-3">{label}</th>)}</tr></thead>
                       <tbody>{monthlyMatrix.map((month) => {
                         const totals = month.finance.byCurrency[code] ?? computeReportFinance(month.transactions, code);
                         const share = annual.totalExpense > 0 ? totals.totalExpense / annual.totalExpense * 100 : 0;
@@ -560,7 +560,7 @@ export const ReportsCenterView: React.FC<ReportsCenterViewProps> = ({
                           <td className="p-3 text-right">{totals.transactionCount}</td><td className="p-3 text-right">%{share.toFixed(1)}</td>
                         </tr>;
                       })}</tbody>
-                      <tfoot><tr className="bg-slate-100 font-bold"><td className="p-3">Yıllık toplam</td>
+                      <tfoot><tr className="bg-slate-100 font-bold"><td className="p-3">{localize("Yıllık toplam", "Annual total")}</td>
                         {[annual.totalIncome, annual.totalExpense, annual.totalPendingExpense, annual.netBalance, annual.cashFlowNet].map((value, index) => <td key={index} className="p-3 text-right font-mono">{formatMoney(value, code)}</td>)}
                         <td className="p-3 text-right">{annual.transactionCount}</td><td className="p-3 text-right">%{annual.totalExpense > 0 ? '100.0' : '0.0'}</td>
                       </tr></tfoot>

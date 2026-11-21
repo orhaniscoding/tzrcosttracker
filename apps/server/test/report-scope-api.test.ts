@@ -341,3 +341,12 @@ describe('report HTTP project scope', () => {
     expect(stored.find((row: any) => row.title === title).currency).toBe('=TX');
   });
 });
+
+it('rejects an oversized export before reading category data', async () => {
+  const s = await setup();
+  const readRows = vi.spyOn(TransactionRepository.prototype, 'listTransactionsInScope').mockReturnValue(Array(10_001).fill(s.a));
+  const response = await get('export/csv', s.tokens.manager);
+  expect(response.statusCode).toBe(413);
+  expect(response.json().code).toBe('CSV_EXPORT_LIMIT_EXCEEDED');
+  expect(readRows).toHaveBeenCalledWith(expect.any(Object), { all: false, projectIds: ['site one'] }, config.masterKey, config.blindIndexPepper, 10_001);
+});

@@ -1,3 +1,4 @@
+import { useLocale } from '../context/LocaleContext.js';
 import React from 'react';
 import { ShieldCheck, ShieldAlert, Settings, Lock, LogOut, Building2 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext.js';
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   auditVerified,
   userName,
 }) => {
+  const { t: copy } = useLocale();
   const { settings } = useTheme();
 
   return (
@@ -54,20 +56,20 @@ export const Header: React.FC<HeaderProps> = ({
               ? 'bg-rose-950/60 text-rose-400 border-rose-800/80'
               : 'bg-slate-800 text-slate-400 border-slate-700'
           }`}
-          title="Tüm finansal veritabanı kayıtları kriptografik SHA-256 zinciriyle mühürlüdür."
+          title={copy("Tüm finansal veritabanı kayıtları kriptografik SHA-256 zinciriyle mühürlüdür.", "The recorded audit chain is checked with SHA-256.")}
         >
           {auditVerified === true ? (
             <>
               <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>Kriptografik Bütünlük: Mühürlü</span>
+              <span>{copy("Kriptografik Bütünlük: Mühürlü", "Audit integrity verified")}</span>
             </>
           ) : auditVerified === false ? (
             <>
               <ShieldAlert className="h-4 w-4 text-rose-400" />
-              <span>UYARI: Veri Kurcalanmış!</span>
+              <span>{copy("UYARI: Veri Kurcalanmış!", "Warning: audit verification failed")}</span>
             </>
           ) : (
-            <span>Denetim Bekleniyor...</span>
+            <span>{copy("Denetim Bekleniyor...", "Audit verification pending…")}</span>
           )}
         </div>
 
@@ -75,17 +77,17 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onOpen2FA}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-          title="Google / Microsoft Authenticator 2FA Ayarları"
+          title={copy("Google / Microsoft Authenticator 2FA Ayarları", "Two-factor authentication settings")}
         >
           <Lock className="h-3.5 w-3.5 text-blue-400" />
-          <span>2FA Güvenlik</span>
+          <span>{copy("2FA Güvenlik", "Two-factor authentication")}</span>
         </button>
 
         {/* Kozmetik & Şirket Ayarları */}
         <button
           onClick={onOpenSettings}
           className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-          title="Kişiselleştirme & Şirket Ayarları"
+          title={copy("Kişiselleştirme & Şirket Ayarları", "Branding and company settings")}
         >
           <Settings className="h-4 w-4" />
         </button>
@@ -97,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-900/50 transition"
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span>Çıkış ({userName})</span>
+            <span>{copy("Çıkış (", "Sign out (")}{userName})</span>
           </button>
         )}
       </div>

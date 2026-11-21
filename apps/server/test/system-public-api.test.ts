@@ -11,9 +11,9 @@ const config = {
   bootstrapToken: 'synthetic-bootstrap-token-32chars',
 };
 const now = '2026-01-01T00:00:00.000Z';
-const publicKeys = ['needsSetup', 'isFirstRun', 'hasUsers', 'companyName', 'baseCurrency'];
+const publicKeys = ['needsSetup', 'isFirstRun', 'hasUsers'];
 const genericError = { error: 'Beklenmedik bir hata oluştu. Lütfen daha sonra tekrar deneyin.' };
-const defaults = { needsSetup: true, isFirstRun: true, hasUsers: false, companyName: 'TZRCoster Finance', baseCurrency: 'TRY' };
+const defaults = { needsSetup: true, isFirstRun: true, hasUsers: false };
 const templates = [
   { id: 'construction', title: '🏗️ İnşaat, Taahhüt & Şantiye', description: 'Kaba yapı, ince işler, elektrik-mekanik, taşeron hakedişleri ve şantiye genel giderleri', categoryCount: 16 },
   { id: 'manufacturing', title: '🏭 İmalat, Üretim & Fabrika', description: 'Hammadde, makine bakım, lojistik, ambalaj, üretim işçiliği ve enerji giderleri', categoryCount: 12 },
@@ -139,7 +139,7 @@ function setupPayload(username = 'setup_admin') {
 }
 
 describe('public system status contract', () => {
-  it('returns exactly the five public fields on an empty database without seeding', async () => {
+  it('returns only readiness fields on an empty database without seeding', async () => {
     const state = (await setup({ instrument: true }))!;
     const audit = vi.spyOn(AuditLogRepository.prototype, 'logAction');
     const listUsers = vi.spyOn(app.userRepo, 'listUsers');
@@ -160,7 +160,7 @@ describe('public system status contract', () => {
     expect(state.respondOpen).toBe(0);
     expect(state.committedBeforeSend).toBe(1);
     expect(state.open).toBe(0);
-    expect(state.tables).toEqual(['users', 'white_label_settings']);
+    expect(state.tables).toEqual(['users']);
     expect(state.writes).toEqual([]);
     expect(audit).not.toHaveBeenCalled();
     expect(listUsers).not.toHaveBeenCalled();
@@ -175,17 +175,6 @@ describe('public system status contract', () => {
     expect(userProbe.params).toEqual([1]);
     for (const column of ['count(', 'username', 'email', 'full_name', 'password_hash', 'role', 'is_active', 'two_factor']) {
       expect(userProbe.sql.toLowerCase()).not.toContain(column);
-    }
-
-    const settingsProbe = state.selections[1];
-    expect(settingsProbe.table).toBe('white_label_settings');
-    expect(settingsProbe.method).toBe('get');
-    expect(settingsProbe.keys.sort()).toEqual(['baseCurrency', 'companyName']);
-    expect(settingsProbe.sql).toContain('"company_name"');
-    expect(settingsProbe.sql).toContain('"base_currency"');
-    expect(settingsProbe.sql).toContain('"id"');
-    for (const column of ['app_title', 'logo_url', 'favicon_url', 'background_url', 'primary_color', 'secondary_color', 'default_theme', 'date_format', 'updated_at']) {
-      expect(settingsProbe.sql).not.toContain(column);
     }
 
     const second = await status();
@@ -207,7 +196,7 @@ describe('public system status contract', () => {
     const res = await status();
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ needsSetup: false, isFirstRun: false, hasUsers: true, companyName: 'TZRCoster Finance', baseCurrency: 'TRY' });
+    expect(body).toEqual({ needsSetup: false, isFirstRun: false, hasUsers: true });
     expectPublicShape(body);
 
     const setupRes = await app.inject({ method: 'POST', url: '/api/system/setup', headers: { 'x-setup-token': config.bootstrapToken }, payload: setupPayload() });
@@ -231,7 +220,7 @@ describe('public system status contract', () => {
     const res = await status();
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ needsSetup: false, isFirstRun: false, hasUsers: true, companyName: 'TZRCoster Finance', baseCurrency: 'TRY' });
+    expect(body).toEqual({ needsSetup: false, isFirstRun: false, hasUsers: true });
     expectPublicShape(body);
     expect(res.body).not.toContain('active-one');
     expect(res.body).not.toContain('@example.test');
@@ -248,14 +237,14 @@ describe('public system status contract', () => {
     const res = await status();
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)).toEqual(defaults);
-    expect(state.tables).toEqual(['users', 'white_label_settings']);
+    expect(state.tables).toEqual(['users']);
     expect(state.tables).not.toContain('projects');
     expect(state.writes).toEqual([]);
     expect(listProjects).not.toHaveBeenCalled();
     expect(requireFresh).not.toHaveBeenCalled();
   });
 
-  it('reads only the global settings row and defaults in memory when it is missing', async () => {
+  it('does not read or expose settings even with a global row', async () => {
     const state = (await setup({ instrument: true }))!;
     seedSettings('site-one', { companyName: 'Other Co', baseCurrency: 'EUR' });
 
@@ -265,11 +254,11 @@ describe('public system status contract', () => {
 
     seedSettings('global', { companyName: 'Synthetic Global Co', baseCurrency: 'USD' });
     const after = await status();
-    expect(JSON.parse(after.body)).toEqual({ needsSetup: true, isFirstRun: true, hasUsers: false, companyName: 'Synthetic Global Co', baseCurrency: 'USD' });
+    expect(JSON.parse(after.body)).toEqual({ needsSetup: true, isFirstRun: true, hasUsers: false });
     expectPublicShape(JSON.parse(after.body));
 
     const queried = state.selections.filter((selection: any) => selection.table === 'white_label_settings');
-    expect(queried).toHaveLength(2);
+    expect(queried).toHaveLength(0);
     expect(state.writes).toEqual([]);
     expect(app.db.select().from(whiteLabelSettings).all()).toHaveLength(2);
     expect(app.db.select().from(auditLogs).all()).toHaveLength(0);
@@ -290,14 +279,14 @@ describe('public system status contract', () => {
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ needsSetup: true, isFirstRun: true, hasUsers: false, companyName: 'Synthetic Global Co', baseCurrency: 'USD' });
+    expect(body).toEqual({ needsSetup: true, isFirstRun: true, hasUsers: false });
     expectPublicShape(body);
     expect(res.body).not.toContain('Injected');
     expect(res.body).not.toContain('userCount');
     expect(res.body).not.toContain('projectCount');
   });
 
-  it('keeps users and settings reads inside one synchronous transaction that commits before the response', async () => {
+  it('keeps the readiness probe inside one synchronous transaction that commits before the response', async () => {
     const state = (await setup({ instrument: true }))!;
     seedUser('active-user');
     seedSettings('global', { companyName: 'Synthetic Global Co', baseCurrency: 'USD' });
@@ -305,8 +294,8 @@ describe('public system status contract', () => {
     const res = await status();
     expect(res.statusCode).toBe(200);
     expect(state.txCalls).toBe(1);
-    expect(state.selections).toHaveLength(2);
-    expect(state.selections.map((selection: any) => selection.table)).toEqual(['users', 'white_label_settings']);
+    expect(state.selections).toHaveLength(1);
+    expect(state.selections.map((selection: any) => selection.table)).toEqual(['users']);
     expect(state.callbackReturns).toHaveLength(1);
     expect(state.callbackReturnedPromise).toBe(false);
     expect(state.rolledBack).toBe(0);
@@ -345,7 +334,7 @@ describe('public system status contract', () => {
 
     const retry = await status();
     expect(retry.statusCode).toBe(200);
-    expect(JSON.parse(retry.body)).toEqual({ needsSetup: true, isFirstRun: true, hasUsers: false, companyName: 'Synthetic Global Co', baseCurrency: 'USD' });
+    expect(JSON.parse(retry.body)).toEqual({ needsSetup: true, isFirstRun: true, hasUsers: false });
   });
 
   it('serves the static templates without touching the database', async () => {

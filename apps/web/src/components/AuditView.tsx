@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, ShieldAlert, RefreshCw, KeyRound, CheckCircle2 } from 'lucide-react';
 import { ApiClient } from '../api/client.js';
+import { useLocale } from '../context/LocaleContext.js';
 
 interface AuditViewProps {
   auditVerified: boolean | null;
@@ -8,6 +9,7 @@ interface AuditViewProps {
 }
 
 export const AuditView: React.FC<AuditViewProps> = ({ auditVerified, onRefreshAudit }) => {
+  const { t } = useLocale();
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<any>(null);
 
@@ -42,16 +44,15 @@ export const AuditView: React.FC<AuditViewProps> = ({ auditVerified, onRefreshAu
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900">
                   {auditVerified === true
-                    ? 'Kriptografik SHA-256 Denetim Zinciri Doğrulandı'
-                    : 'UYARI: Denetim Zincirinde Uyuşmazlık'}
+                    ? t('Kriptografik SHA-256 Denetim Zinciri Doğrulandı', 'Cryptographic SHA-256 Audit Chain Verified')
+                    : t('UYARI: Denetim Zincirinde Uyuşmazlık', 'WARNING: Audit Chain Mismatch')}
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                   Zero-Knowledge
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-                Sistemdeki her mali hareket, kategori ve kasa işlemi, önceki satırın hash değeriyle kriptografik olarak birbirine bağlanır.
-                Veritabanı sunucusuna yetkisiz girilip tek bir kuruş veya açıklama harici değiştirilse bile zincir bozulur ve sistem anında alarm verir.
+                {t('Sistemdeki her mali hareket, kategori ve kasa işlemi, önceki satırın hash değeriyle kriptografik olarak birbirine bağlanır. Veritabanı sunucusuna yetkisiz girilip tek bir kuruş veya açıklama harici değiştirilse bile zincir bozulur ve sistem anında alarm verir.', 'The system cryptographically links each financial transaction, category, and cash entry to the previous row’s hash. An unauthorized database change as small as one cent or a description edit breaks the chain and triggers an alert.')}
               </p>
             </div>
           </div>
@@ -62,7 +63,7 @@ export const AuditView: React.FC<AuditViewProps> = ({ auditVerified, onRefreshAu
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${isVerifying ? 'animate-spin' : ''}`} />
-            <span>{isVerifying ? 'Zincir Taranıyor...' : 'Mührü Yeniden Doğrula'}</span>
+            <span>{isVerifying ? t('Zincir Taranıyor...', 'Checking the chain...') : t('Mührü Yeniden Doğrula', 'Verify the Seal Again')}</span>
           </button>
         </div>
 
@@ -70,10 +71,12 @@ export const AuditView: React.FC<AuditViewProps> = ({ auditVerified, onRefreshAu
           <div className="mt-5 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
             <div className="flex items-center gap-2 font-bold text-slate-800 mb-1">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span>{verifyResult.message}</span>
+              <span>{t(verifyResult.message, verifyResult.verified
+                ? 'The stored audit chain links and audit data covered by the hashes were verified. This check covers audit records only.'
+                : 'An inconsistency was found in the stored audit chain links or the audit data covered by the hashes.')}</span>
             </div>
             <p className="text-slate-500 font-mono">
-              Doğrulanan Toplam Kriptografik Kayıt: <strong>{verifyResult.totalRecordsVerified}</strong> adet
+              {t('Doğrulanan Toplam Kriptografik Kayıt: ', 'Total Cryptographic Records Verified: ')}<strong>{verifyResult.totalRecordsVerified}</strong>{t(' adet', ' records')}
             </p>
           </div>
         )}
@@ -84,30 +87,30 @@ export const AuditView: React.FC<AuditViewProps> = ({ auditVerified, onRefreshAu
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <h4 className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
             <KeyRound className="h-4 w-4 text-blue-600" />
-            <span>AES-256-GCM Alan Şifreleme</span>
+            <span>{t('AES-256-GCM Alan Şifreleme', 'AES-256-GCM Field Encryption')}</span>
           </h4>
           <p className="text-slate-500">
-            Fatura tutarları, bütçeler ve banka IBAN bilgileri veritabanında asla açık metin olarak durmaz. Askeri seviyede şifrelidir.
+            {t('Fatura tutarları, bütçeler ve banka IBAN bilgileri veritabanında asla açık metin olarak durmaz. Askeri seviyede şifrelidir.', 'Invoice amounts, budgets, and bank IBANs are encrypted in the database.')}
           </p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <h4 className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
             <RefreshCw className="h-4 w-4 text-emerald-600" />
-            <span>HMAC-SHA256 Kör İndeks</span>
+            <span>{t('HMAC-SHA256 Kör İndeks', 'HMAC-SHA256 Blind Index')}</span>
           </h4>
           <p className="text-slate-500">
-            Arama ve filtrelemeler şifreli veriyi açığa çıkarmadan, tek yönlü tuzlanmış hash indeksleri üzerinden milisaniyeler içinde yapılır.
+            {t('Arama ve filtrelemeler şifreli veriyi açığa çıkarmadan, tek yönlü tuzlanmış hash indeksleri üzerinden milisaniyeler içinde yapılır.', 'Search and filters use one-way salted hash indexes to return results in milliseconds without exposing encrypted data.')}
           </p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <h4 className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-purple-600" />
-            <span>Çift Yönlü Oto-Kasa Mahsubu</span>
+            <span>{t('Çift Yönlü Oto-Kasa Mahsubu', 'Double-Entry Cash Offsets')}</span>
           </h4>
           <p className="text-slate-500">
-            Ortakların ve şantiyecilerin cebinden yaptığı harcamalar için çift taraflı muhasebe fişi anında kesilir ve canlı köprülerle bağlanır.
+            {t('Ortakların ve şantiyecilerin cebinden yaptığı harcamalar için çift taraflı muhasebe fişi anında kesilir ve canlı köprülerle bağlanır.', 'Out-of-pocket expenses paid by partners or site workers automatically generate linked double-entry accounting records.')}
           </p>
         </div>
       </div>

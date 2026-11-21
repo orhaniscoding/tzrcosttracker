@@ -35,7 +35,12 @@ describe('CompanyDebtTable', () => {
     expect(render([row('eligible')])).not.toContain('Ödendi Yap'); expect(render([row('eligible')], false, false)).not.toContain('Ödendi Yap');
   });
   it('binds the eligible id only to its click', () => {
-    const tree = CompanyDebtTable({ transactions: [row('eligible'), ...excluded], isLoading: false, canMutate: true, onMarkPaid: mark });
+    let tree: React.ReactNode;
+    function Capture() {
+      tree = CompanyDebtTable({ transactions: [row('eligible'), ...excluded], isLoading: false, canMutate: true, onMarkPaid: mark });
+      return tree;
+    }
+    renderToStaticMarkup(<Capture />);
     const buttons: React.ReactElement<any>[] = [];
     const visit = (node: React.ReactNode): void => { React.Children.forEach(node, child => { if (!React.isValidElement<any>(child)) return; if (child.type === 'button') buttons.push(child); visit(child.props.children); }); };
     visit(tree); expect(mark).not.toHaveBeenCalled(); expect(buttons).toHaveLength(1); buttons[0].props.onClick(); expect(mark).toHaveBeenCalledTimes(1); expect(mark).toHaveBeenCalledWith('eligible');

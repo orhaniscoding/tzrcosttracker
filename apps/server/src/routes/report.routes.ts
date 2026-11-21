@@ -5,6 +5,9 @@ import { ForbiddenError, NotFoundError, SessionInvalidError, isValidPathId } fro
 import { computeBalanceReport, computeSummaryReport, readBaseCurrencyInTx } from '../financial-report.js';
 
 class ReportValidationError extends Error {}
+class CsvExportLimitError extends Error {}
+const MAX_CSV_ROWS = 10_000;
+const MAX_CSV_BYTES = 16 * 1024 * 1024;
 
 // Only these three query fields may reach the repository. No caller-supplied scope
 // or repository-only filter (including dateComparison/includeDeleted) is forwarded.
@@ -53,13 +56,15 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
     if (error instanceof SessionInvalidError) return reply.status(401).send({ code: 'SESSION_INVALID', error: 'Yetkisiz erişim.' });
     if (error instanceof ForbiddenError) return reply.status(403).send({ error: 'Yasak.' });
     if (error instanceof NotFoundError) return reply.status(404).send({ error: 'Bulunamadı.' });
+    if (error instanceof CsvExportLimitError) return reply.status(413).send({ code: 'CSV_EXPORT_LIMIT_EXCEEDED', error: 'Daha kısa bir tarih aralığı seçin.' });
     if (error instanceof ReportValidationError) return reply.status(400).send({ error: 'Geçersiz rapor filtresi.' });
     return reply.status(500).send({ error: 'Beklenmedik bir hata oluştu. Lütfen daha sonra tekrar deneyin.' });
   }
 
-  function reportRows(request: any) {
+  function reportRows(request: any, maxRows?: number) {
     return readReport(request, (tx, repo, filters, scope) => {
-      const all = repo.listTransactionsInScope(filters, scope, config.masterKey, config.blindIndexPepper);
+      const all = repo.listTransactionsInScope(filters, scope, config.masterKey, config.blindIndexPepper, maxRows === undefined ? undefined : maxRows + 1);
+      if (maxRows !== undefined && all.length > maxRows) throw new CsvExportLimitError();
       const ids = [...new Set(all.map((row) => row.categoryId))];
       const labels: Array<{ id: string; name: string }> = ids.length === 0 ? [] : tx.select({ id: categories.id, name: categories.name }).from(categories).where(inArray(categories.id, ids)).all();
       return { all, categoryMap: new Map(labels.map((c) => [c.id, c.name])) };
@@ -95,7 +100,7 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
   // EXCEL / CSV DIŞA AKTARMA (Formatlı ve Excel UTF-8 Uyumlu)
   fastify.get('/export/csv', { onRequest: [fastify.authenticate] }, async (request, reply) => {
     try {
-    const { all, categoryMap } = reportRows(request);
+    const { all, categoryMap } = reportRows(request, MAX_CSV_ROWS);
 
     const formulaTriggers = new Set(["=", "+", "-", "@", "\uFF1D", "\uFF0B", "\uFF0D", "\uFF20"]);
     const isDangerousText = (value: string): boolean => {
@@ -108,18 +113,23 @@ export const reportRoutes: FastifyPluginAsync = async (fastify) => {
       return "\"" + text.replace(/"/g, "\"\"") + "\"";
     };
     const headers = ['Tarih', 'Başlık / Kalem', 'Tutar', 'Para Birimi', 'Kategori', 'Tedarikçi / Cari', 'Açıklama'];
-    const lines = all.map((t) => [
-      csvTextField(t.date.split('T')[0]),
-      csvTextField(t.title),
-      t.amount,
-      csvTextField(t.currency),
-      csvTextField(categoryMap.get(t.categoryId) || String()),
-      csvTextField(t.party || String()),
-      csvTextField(t.description || String()),
-    ].join(';'));
-
-    const csvContent = '\uFEFF' + [headers.join(';'), ...lines].join('\r\n');
-
+    const lines = ['\uFEFF' + headers.join(';')];
+    let bytes = Buffer.byteLength(lines[0]!);
+    for (const row of all) {
+      const line = [
+        csvTextField(row.date.split('T')[0]),
+        csvTextField(row.title),
+        row.amount,
+        csvTextField(row.currency),
+        csvTextField(categoryMap.get(row.categoryId) || ''),
+        csvTextField(row.party || ''),
+        csvTextField(row.description || ''),
+      ].join(';');
+      bytes += 2 + Buffer.byteLength(line);
+      if (bytes > MAX_CSV_BYTES) throw new CsvExportLimitError();
+      lines.push(line);
+    }
+    const csvContent = lines.join('\r\n');
     reply.header('Content-Type', 'text/csv; charset=utf-8');
     reply.header('Content-Disposition', `attachment; filename="TZRCoster_Rapor_${new Date().toISOString().split('T')[0]}.csv"`);
     return reply.send(csvContent);

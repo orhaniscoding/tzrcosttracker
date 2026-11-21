@@ -1,6 +1,8 @@
+import { roundLedgerMoney as money } from '@cost-core/types';
+export { roundLedgerMoney as money, cashEffectOf, isOtoKasaIncome, isRecognizedStatus } from '@cost-core/types';
+
 export class DomainError extends Error { statusCode: number; constructor(statusCode: number, message: string) { super(message); this.statusCode = statusCode; } }
 export const GENERIC = "Beklenmedik bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
-export function money(n: number): number { return Math.round((n + Number.EPSILON) * 100) / 100; }
 export function sanitizeMoney(n: any, label = "Tutar"): number {
   if (typeof n !== "number" || !Number.isFinite(n)) throw new DomainError(400, label + " gecersiz.");
   const cents = Math.round(n * 100);
@@ -26,20 +28,6 @@ export function effectOf(tx: any, includeDeleted = false): { accountId: string; 
     return { accountId: tx.accountToId, delta: money(tx.amount) };
   }
   return null;
-}
-export function isRecognizedStatus(status: unknown): boolean {
-  return status === 'approved' || status === 'pending' || status === 'paid';
-}
-export function isOtoKasaIncome(tx: any): boolean {
-  return tx.type === 'income' && (Boolean(tx.otoKasaTransactionId) || tx.paymentSource === 'person_out_of_pocket');
-}
-// Native-currency company cash only. Wallet linkage is deliberately independent:
-// reports use this delta OR the already-adjusted wallet balance, never both.
-export function cashEffectOf(tx: any): number {
-  if (!tx || tx.deletedAt || !isRecognizedStatus(tx.status) || tx.paymentSource === 'person_out_of_pocket') return 0;
-  if (tx.type === 'expense' && tx.isPaid) return -money(tx.amount);
-  if (tx.type === 'income' && !isOtoKasaIncome(tx) && tx.isPaid !== false && tx.status !== 'pending') return money(tx.amount);
-  return 0;
 }
 export function snapshot(tx: any): any {
   if (!tx) return null;

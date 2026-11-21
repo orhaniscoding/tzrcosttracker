@@ -1,3 +1,4 @@
+import { LanguageSelect, useLocale } from './context/LocaleContext.js';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Sidebar, NavView } from './components/Sidebar.js';
 import { BalanceBar } from './components/BalanceBar.js';
@@ -28,6 +29,7 @@ import { SecuritySettingsView } from './components/SecuritySettingsView.js';
 import { BackupCenterView } from './components/BackupCenterView.js';
 import { LiquidityHubView } from './components/LiquidityHubView.js';
 import { ApiClient } from './api/client.js';
+import { createExpenseSubmission, sendExpense } from './expense-submission.js';
 import { ProjectScopeController, canRenderScopedView } from './project-scope.js';
 import { canAccessView, canCreateProject, canMutateTransactions, canManageCategories, isValidRole } from './view-access.js';
 import type { Transaction } from '@cost-core/types';
@@ -40,6 +42,7 @@ import {
 } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const { t } = useLocale();
   const [user, setUser] = useState<any>(null);
   const [scopeController] = useState(() => new ProjectScopeController());
   const scope = useSyncExternalStore(scopeController.subscribe, scopeController.getSnapshot, scopeController.getSnapshot);
@@ -247,7 +250,7 @@ export const App: React.FC = () => {
       loadData();
     } catch (err: any) {
       if (stale()) return;
-      setAuthError(err.message || 'Giriş yapılamadı.');
+      setAuthError(err.message || t("Giriş yapılamadı.", "Could not sign in."));
     }
   };
 
@@ -276,19 +279,22 @@ export const App: React.FC = () => {
     const request = ApiClient.getToken() ? ApiClient.logout() : Promise.resolve(null);
     resetLocalSession();
     const gen = sessionGenRef.current;
-    Promise.resolve(request).then((res: any) => { if (res && res.ok === false) throw new Error('logout'); }).catch(() => { if (sessionGenRef.current === gen && !ApiClient.getToken()) setAuthError('Cikis sunucuda tamamlanamadi.'); });
+    Promise.resolve(request).then((res: any) => { if (res && res.ok === false) throw new Error('logout'); }).catch(() => { if (sessionGenRef.current === gen && !ApiClient.getToken()) setAuthError(t("Çıkış sunucuda tamamlanamadı.", "The server did not complete sign-out.")); });
   };
   const handleLogout = handleLogoutToLogin;
-  const handleSessionExpired = () => { resetLocalSession(); setAuthError('Oturumunuz sona erdi. Lutfen tekrar giris yapin.'); };
+  const handleSessionExpired = () => { resetLocalSession(); setAuthError(t("Oturumunuz sona erdi. Lütfen tekrar giriş yapın.", "Your session has expired. Sign in again.")); };
   useEffect(() => ApiClient.subscribeSessionInvalid(handleSessionExpired), []);
 
-  const handleAddTransaction = async (txData: any) => {
-    if (!canAccessView(userRef.current?.role, 'transactions_new') || !scopeController.getSnapshot().ready) return;
+  const expenseSubmit = React.useMemo(() => createExpenseSubmission(sendExpense), []);
+  useEffect(() => ApiClient.subscribeAuthChange(expenseSubmit.clear), [expenseSubmit]);
+  const handleAddTransaction = async (txData: Record<string, unknown>) => {
+    if (!canAccessView(userRef.current?.role, 'transactions_new') || !scopeController.getSnapshot().ready) {
+      throw new Error('The expense form is no longer authorized.');
+    }
     const current = scopeController.captureSession();
-    await ApiClient.createTransaction({
-      ...txData,
-      projectId: scopeController.getSnapshot().selectedProjectId || undefined,
-    });
+    const projectId = scopeController.getSnapshot().selectedProjectId || undefined;
+    if (txData.projectId !== projectId) throw new Error('The selected project changed.');
+    await expenseSubmit(JSON.stringify([ApiClient.getAuthGeneration(), projectId]), { ...txData, projectId });
     if (!current()) return;
     await loadData();
   };
@@ -329,7 +335,7 @@ export const App: React.FC = () => {
 
   const handleDeleteCategory = async (id: string) => {
     if (!canAccessView(userRef.current?.role, 'categories_new') || !scopeController.getSnapshot().ready) return;
-    if (!confirm('Bu kategoriyi silmek istediğinizden emin misiniz?')) return;
+    if (!confirm(t("Bu kategoriyi silmek istediğinizden emin misiniz?", "Delete this category?"))) return;
     const current = scopeController.captureSession();
     await ApiClient.deleteCategory(id);
     if (!current()) return;
@@ -340,7 +346,7 @@ export const App: React.FC = () => {
   const handleExportCSV = () => {
     if (!scopeController.getSnapshot().ready) return;
     if (transactions.length === 0) {
-      alert('Dışa aktarılacak hareket bulunmuyor.');
+      alert(t("Dışa aktarılacak hareket bulunmuyor.", "There are no transactions to export."));
       return;
     }
 
@@ -429,32 +435,33 @@ export const App: React.FC = () => {
             />
           </div>
 
-          {/* Sağ: İçe Aktarma, Ekran Kilidi ve Export Aksiyonları */}
-          <div className="flex items-center gap-2.5">
+          {/* Toolbar actions */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <LanguageSelect />
             {canCreateProject(user.role) && <button
               disabled={!scope.ready}
               onClick={() => { if (canCreateProject(userRef.current?.role) && scopeController.getSnapshot().ready) setIsUniversalExcelOpen(true); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
-              title="Herhangi bir Excel dosyasını (.xlsx) veya Google E-Tablo linkini akıllı sütun eşleme ile içeri aktarır"
+              title={t("Herhangi bir Excel dosyasını (.xlsx) veya Google E-Tablo linkini akıllı sütun eşleme ile içeri aktarır", "Import an Excel file (.xlsx) or a Google Sheets link with column mapping")}
             >
               <UploadCloud className="h-4 w-4" />
-              <span>📥 Akıllı Excel & E-Tablo Aktar</span>
+              <span>{t("📥 Akıllı Excel & E-Tablo Aktar", "Import Excel or Google Sheets")}</span>
             </button>}
 
             <button
               onClick={handleLockNow}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 shadow-sm transition"
-              title="Ekranı Anında Kilitle"
+              title={t("Ekranı Anında Kilitle", "Lock the screen")}
             >
               <Lock className="h-4 w-4 text-amber-600" />
-              <span>Kilitle</span>
+              <span>{t("Kilitle", "Lock")}</span>
             </button>
 
             <button
               onClick={handleExportCSV}
               disabled={!scope.ready}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm transition"
-              title="Excel uyumlu CSV Raporu indir"
+              title={t("Excel uyumlu CSV Raporu indir", "Download a CSV report")}
             >
               <Download className="h-4 w-4 text-emerald-600" />
               <span>Excel / CSV</span>
@@ -470,17 +477,17 @@ export const App: React.FC = () => {
               <span>{importNotice}</span>
             </div>
             <button onClick={() => setImportNotice(null)} className="text-emerald-700 font-bold hover:underline">
-              Kapat
+              {t("Kapat", "Close")}
             </button>
           </div>
         )}
 
         {/* İÇERİK GÖVDE ALANI - HER ALTMENÜ İÇİN ÖZEL BAĞIMSIZ EKRAN */}
         <main className="flex-1 p-6 space-y-6 max-w-7xl w-full">
-          {scope.error && <div role="alert" className="p-4 bg-rose-50 text-rose-800">{scope.error} <button onClick={() => void loadData()}>Yeniden dene</button></div>}
-          {scope.loading && <p role="status">Güncel proje kapsamı yükleniyor…</p>}
-          {scope.noProjects && <p role="status">Atanmış projeniz bulunmuyor. Proje erişimi için yöneticinizle görüşün. Kişisel PIN ve güvenlik ayarlarınızı kullanabilirsiniz. <button onClick={() => void loadData()}>Erişimi yeniden kontrol et</button></p>}
-          {!isValidRole(user.role) && <p role="alert">Bu kullanıcı rolü için erişim tanımlı değil.</p>}
+          {scope.error && <div role="alert" className="p-4 bg-rose-50 text-rose-800">{scope.error} <button onClick={() => void loadData()}>{t("Yeniden dene", "Retry")}</button></div>}
+          {scope.loading && <p role="status">{t("Güncel proje kapsamı yükleniyor…", "Loading project access…")}</p>}
+          {scope.noProjects && <p role="status">{t("Atanmış projeniz bulunmuyor. Proje erişimi için yöneticinizle görüşün. Kişisel PIN ve güvenlik ayarlarınızı kullanabilirsiniz.", "You have no assigned projects. Contact your administrator for project access. Your personal PIN and security settings are available.")} <button onClick={() => void loadData()}>{t("Erişimi yeniden kontrol et", "Check access again")}</button></p>}
+          {!isValidRole(user.role) && <p role="alert">{t("Bu kullanıcı rolü için erişim tanımlı değil.", "This role has no configured access.")}</p>}
           <React.Fragment key={`${user.id}:${user.role}:${scope.scopeKey}`}>
           {canRenderScopedView(user.role, currentView, scope) && <>
           {/* 4'lü Canlı Bilanço Barı (Harcama ve Bilanço görünümlerinde her zaman görünür) */}
@@ -683,9 +690,7 @@ export const App: React.FC = () => {
 
           {/* 6.3 ŞİFRELİ SİSTEM YEDEĞİ (.tzrvault) */}
           {currentView === 'backup_vault' && (
-            <BackupCenterView
-              onRestored={loadData}
-            />
+            <BackupCenterView />
           )}
 
           {/* 6.4 ÇÖP KUTUSU & GERİ ALMA (SOFT-DELETE) */}
@@ -810,8 +815,8 @@ export const App: React.FC = () => {
               <div className="h-12 w-12 mx-auto rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold mb-3 shadow-md">
                 <Lock className="h-6 w-6" />
               </div>
-              <h2 className="text-lg font-bold text-slate-900">TZRCoster Giriş</h2>
-              <p className="text-xs text-slate-500 mt-1">Hassas mali alanları şifrelenen mali takip portalı</p>
+              <h2 className="text-lg font-bold text-slate-900">{t("TZRCoster Giriş", "Sign in to TZR Cost Tracker")}</h2>
+              <p className="text-xs text-slate-500 mt-1">{t("Hassas mali alanları şifrelenen mali takip portalı", "Project cost tracking with encryption for selected financial fields")}</p>
             </div>
 
             {authError && (
@@ -820,10 +825,13 @@ export const App: React.FC = () => {
               </div>
             )}
 
+            <div className="mb-4 flex justify-end"><LanguageSelect /></div>
             <form onSubmit={handleLogin} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Kullanıcı Adı veya E-posta</label>
+                <label htmlFor="login-account" className="block text-slate-700 font-medium mb-1">{t("Kullanıcı Adı veya E-posta", "Username or email")}</label>
                 <input
+                  id="login-account"
+                  autoComplete="username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -833,8 +841,10 @@ export const App: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Parola</label>
+                <label htmlFor="login-password" className="block text-slate-700 font-medium mb-1">{t("Parola", "Password")}</label>
                 <input
+                  id="login-password"
+                  autoComplete="current-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -845,13 +855,15 @@ export const App: React.FC = () => {
 
               {require2FA && (
                 <div>
-                  <label className="block text-emerald-700 font-semibold mb-1">
-                    Authenticator (6 hane) veya tek kullanımlık yedek kod (XXXX-XXXX) *
+                  <label htmlFor="login-two-factor" className="block text-emerald-700 font-semibold mb-1">
+                    {t("Authenticator (6 hane) veya tek kullanımlık yedek kod (XXXX-XXXX) *", "Authenticator code (6 digits) or one-time recovery code (XXXX-XXXX) *")}
                   </label>
                   <input
                     type="text"
+                    id="login-two-factor"
+                    autoComplete="one-time-code"
                     maxLength={9}
-                    placeholder="000000 veya A1B2-C3D4"
+                    placeholder={t("000000 veya A1B2-C3D4", "000000 or A1B2-C3D4")}
                     value={twoFactorCode}
                     onChange={(e) => setTwoFactorCode(e.target.value.replace(/[^0-9A-Fa-f-]/g, '').replace(/-{2,}/g, '-').slice(0, 9))}
                     className="w-full bg-slate-50 border border-emerald-500 rounded-lg px-3 py-2 text-center text-base font-mono text-slate-900 tracking-widest focus:outline-none"
@@ -866,7 +878,7 @@ export const App: React.FC = () => {
                 className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center justify-center gap-1.5 transition shadow-sm"
               >
                 <LogIn className="h-4 w-4" />
-                <span>Giriş Yap</span>
+                <span>{t("Giriş Yap", "Sign in")}</span>
               </button>
             </form>
           </div>

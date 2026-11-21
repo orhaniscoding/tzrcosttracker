@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocale } from '../context/LocaleContext.js';
 import {
   Users,
   Building,
@@ -28,6 +29,8 @@ interface PartiesViewProps {
 
 export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categories }) => {
   const { settings } = useTheme();
+  const { t: translate, intlLocale } = useLocale();
+  const localize = translate;
   const currency = settings.baseCurrency || 'TRY';
 
   const [parties, setParties] = useState<Party[]>([]);
@@ -49,7 +52,7 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatMoney = (val: number) => {
-    return new Intl.NumberFormat('tr-TR', {
+    return new Intl.NumberFormat(intlLocale, {
       style: 'currency',
       currency,
       maximumFractionDigits: 2,
@@ -203,10 +206,10 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Building className="h-5 w-5 text-blue-600" />
-              <span>Cari & Taşeron Karnesi (Hesap Ekstreleri)</span>
+              <span>{translate('Cari & Taşeron Karnesi (Hesap Ekstreleri)', 'Accounts & Subcontractors (Statements)')}</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Taşeronlar, malzeme tedarikçileri ve firmaların hesap özetleri, fatura dökümleri ve kalan borç bakiyeleri
+              {localize("Taşeronlar, malzeme tedarikçileri ve firmaların hesap özetleri, fatura dökümleri ve kalan borç bakiyeleri", "Balances and statements for contractors, suppliers, and other counterparties")}
             </p>
           </div>
 
@@ -225,16 +228,16 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
           <div className="mt-5 p-5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
             <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-1.5 text-sm">
               <UserPlus className="h-4 w-4 text-blue-600" />
-              <span>Yeni Cari / Tedarikçi Tanımla</span>
+              <span>{translate('Yeni Cari / Tedarikçi Tanımla', 'Add Account / Supplier')}</span>
             </h3>
 
             <form onSubmit={handleCreateParty} className="space-y-3.5">
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 <div className="sm:col-span-6">
-                  <label className="block text-slate-700 font-semibold mb-1">Firma / Cari / Kişi Adı *</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{translate('Firma / Cari / Kişi Adı *', 'Company / Account / Person Name *')}</label>
                   <input
                     type="text"
-                    placeholder="Örn: Akçansa Çimento A.Ş., Demirci Ustası Hasan..."
+                    placeholder={translate('Örn: Akçansa Çimento A.Ş., Demirci Ustası Hasan...', 'e.g. Acme Cement, Alex Smith...')}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
@@ -244,24 +247,24 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
                 </div>
 
                 <div className="sm:col-span-6">
-                  <label className="block text-slate-700 font-semibold mb-1">Cari Türü *</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{translate('Cari Türü *', 'Account Type *')}</label>
                   <select
                     value={type}
                     onChange={(e) => setType(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
                   >
-                    <option value="supplier">Tedarikçi / Malzeme Satıcısı</option>
-                    <option value="subcontractor">Taşeron / Usta</option>
-                    <option value="partner">Ortak / Yatırımcı</option>
-                    <option value="person">Şahıs / Personel</option>
-                    <option value="client">Müşteri / İşveren</option>
+                    <option value="supplier">{translate('Tedarikçi / Malzeme Satıcısı', 'Supplier / Materials Vendor')}</option>
+                    <option value="subcontractor">{translate('Taşeron / Usta', 'Subcontractor / Tradesperson')}</option>
+                    <option value="partner">{translate('Ortak / Yatırımcı', 'Partner / Investor')}</option>
+                    <option value="person">{translate('Şahıs / Personel', 'Person / Staff')}</option>
+                    <option value="client">{translate('Müşteri / İşveren', 'Client / Employer')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 <div className="sm:col-span-4">
-                  <label className="block text-slate-700 font-semibold mb-1">Telefon Numarası</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{translate('Telefon Numarası', 'Phone Number')}</label>
                   <input
                     type="text"
                     placeholder="0532 ..."
@@ -272,7 +275,7 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
                 </div>
 
                 <div className="sm:col-span-4">
-                  <label className="block text-slate-700 font-semibold mb-1">E-posta Adresi</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{translate('E-posta Adresi', 'Email Address')}</label>
                   <input
                     type="email"
                     placeholder="muhasebe@firma.com"
@@ -283,7 +286,7 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
                 </div>
 
                 <div className="sm:col-span-4">
-                  <label className="block text-slate-700 font-semibold mb-1">IBAN Numarası</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{translate('IBAN Numarası', 'IBAN')}</label>
                   <input
                     type="text"
                     placeholder="TR..."
@@ -296,18 +299,18 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                 <div className="sm:col-span-6">
-                  <label className="block text-slate-700 font-semibold mb-1">Vergi Dairesi & Vergi No</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{translate('Vergi Dairesi & Vergi No', 'Tax Office & Tax Number')}</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Vergi Dairesi"
+                      placeholder={translate('Vergi Dairesi', 'Tax Office')}
                       value={taxOffice}
                       onChange={(e) => setTaxOffice(e.target.value)}
                       className="w-1/2 bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
                     />
                     <input
                       type="text"
-                      placeholder="Vergi No / T.C."
+                      placeholder={translate('Vergi No / T.C.', 'Tax / ID Number')}
                       value={taxNo}
                       onChange={(e) => setTaxNo(e.target.value)}
                       className="w-1/2 bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-blue-600"
@@ -316,10 +319,10 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
                 </div>
 
                 <div className="sm:col-span-6">
-                  <label className="block text-slate-700 font-semibold mb-1">Özel Notlar</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{translate('Özel Notlar', 'Notes')}</label>
                   <input
                     type="text"
-                    placeholder="Sözleşme şartları, ödeme günleri vb."
+                    placeholder={translate('Sözleşme şartları, ödeme günleri vb.', 'Contract terms, payment dates, etc.')}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
@@ -333,7 +336,7 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
                   onClick={() => setIsAddingParty(false)}
                   className="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 font-medium hover:bg-slate-300 transition"
                 >
-                  Vazgeç
+                  {localize("Vazgeç", "Cancel")}
                 </button>
                 <button
                   type="submit"
@@ -351,27 +354,27 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
       {/* 2. GENEL FİNANSAL KPI KARTLARI */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase">Kayıtlı Cari Sayısı</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase">{localize("Kayıtlı Cari Sayısı", "Counterparties")}</span>
           <h3 className="text-xl font-bold font-mono text-slate-900 mt-1">{parties.length} Firma / Usta</h3>
-          <p className="text-[10px] text-slate-400 mt-0.5">{partyMetrics.size} aktif işlem gören</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{partyMetrics.size}{localize(" aktif işlem gören", " with active transactions")}</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase">Toplam İş Hacmi (Fatura)</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase">{localize("Toplam İş Hacmi (Fatura)", "Total invoiced")}</span>
           <h3 className="text-xl font-bold font-mono text-blue-700 mt-1">{formatMoney(totalBilledAll)}</h3>
-          <p className="text-[10px] text-slate-400 mt-0.5">Tüm carilere tahakkuk eden</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{localize("Tüm carilere tahakkuk eden", "Across all counterparties")}</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase">Toplam Ödenen Tutar</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase">{localize("Toplam Ödenen Tutar", "Total paid")}</span>
           <h3 className="text-xl font-bold font-mono text-emerald-700 mt-1">{formatMoney(totalPaidAll)}</h3>
-          <p className="text-[10px] text-emerald-600 mt-0.5">Kapatılmış borçlar</p>
+          <p className="text-[10px] text-emerald-600 mt-0.5">{localize("Kapatılmış borçlar", "Settled balances")}</p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase">Kalan Borç / Vadeli Çek</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase">{localize("Kalan Borç / Vadeli Çek", "Outstanding balance / Post-dated checks")}</span>
           <h3 className="text-xl font-bold font-mono text-rose-600 mt-1">{formatMoney(totalPendingAll)}</h3>
-          <p className="text-[10px] text-rose-500 mt-0.5">Ödenmesi bekleyen bakiyeler</p>
+          <p className="text-[10px] text-rose-500 mt-0.5">{translate("Ödenmesi bekleyen bakiyeler", "Balances awaiting payment")}</p>
         </div>
       </div>
 
@@ -385,7 +388,7 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
               <Search className="h-4 w-4 absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Cari adı, telefon veya vergi no ara..."
+                placeholder={translate('Cari adı, telefon veya vergi no ara...', 'Search account name, phone or tax number...')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
@@ -416,7 +419,7 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
           <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
             {filteredParties.length === 0 ? (
               <div className="text-center py-12 text-xs text-slate-400">
-                Aradığınız kriterde cari bulunamadı.
+                {localize("Aradığınız kriterde cari bulunamadı.", "No counterparties match the filters.")}
               </div>
             ) : (
               filteredParties.map((p) => {
@@ -455,16 +458,16 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
                           handleDeleteParty(p.id, p.name);
                         }}
                         className="p-1 rounded text-slate-400 hover:text-rose-600 transition"
-                        title="Cariyi Sil"
+                        title={translate('Cariyi Sil', 'Delete Account')}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
 
                     <div className="mt-2 flex items-center justify-between text-[11px] pt-2 border-t border-slate-200/60">
-                      <span className="text-slate-500">{m.count} adet işlem</span>
+                      <span className="text-slate-500">{m.count}{localize(" adet işlem", " transactions")}</span>
                       <div className="text-right">
-                        <span className="text-slate-500 mr-2">Kalan Borç:</span>
+                        <span className="text-slate-500 mr-2">{localize("Kalan Borç:", "Outstanding balance:")}</span>
                         <span className={`font-mono font-bold ${m.pendingDebt > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
                           {formatMoney(m.pendingDebt)}
                         </span>
@@ -482,8 +485,8 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
           {!selectedParty ? (
             <div className="text-center py-24 text-slate-400 text-xs">
               <Building className="h-10 w-10 mx-auto mb-2 text-slate-300" />
-              <p className="font-semibold text-slate-600 text-sm">Cari Karnesini Görüntüleyin</p>
-              <p className="mt-1">Detaylı hesap ekstresi ve faturalarını incelemek için sol listeden bir cari seçiniz.</p>
+              <p className="font-semibold text-slate-600 text-sm">{translate('Cari Karnesini Görüntüleyin', 'View Account Details')}</p>
+              <p className="mt-1">{translate('Detaylı hesap ekstresi ve faturalarını incelemek için sol listeden bir cari seçiniz.', 'Select an account on the left to view its statement and invoices.')}</p>
             </div>
           ) : (
             <>
@@ -536,21 +539,21 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
               {/* Cari KPI'ları */}
               <div className="grid grid-cols-3 gap-3 text-xs">
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="text-slate-500 block text-[10px] uppercase font-semibold">Toplam Fatura / İş</span>
+                  <span className="text-slate-500 block text-[10px] uppercase font-semibold">{localize("Toplam Fatura / İş", "Total invoiced")}</span>
                   <span className="font-bold font-mono text-slate-900 text-sm mt-0.5 block">
                     {formatMoney(selectedMetrics?.totalBilled || 0)}
                   </span>
                 </div>
 
                 <div className="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200">
-                  <span className="text-emerald-800 block text-[10px] uppercase font-semibold">Ödenen Tutar</span>
+                  <span className="text-emerald-800 block text-[10px] uppercase font-semibold">{localize("Ödenen Tutar", "Amount paid")}</span>
                   <span className="font-bold font-mono text-emerald-700 text-sm mt-0.5 block">
                     {formatMoney(selectedMetrics?.totalPaid || 0)}
                   </span>
                 </div>
 
                 <div className="bg-rose-50/70 p-3 rounded-lg border border-rose-200">
-                  <span className="text-rose-800 block text-[10px] uppercase font-semibold">Kalan Borç Bakiyesi</span>
+                  <span className="text-rose-800 block text-[10px] uppercase font-semibold">{localize("Kalan Borç Bakiyesi", "Outstanding balance")}</span>
                   <span className="font-bold font-mono text-rose-700 text-sm mt-0.5 block">
                     {formatMoney(selectedMetrics?.pendingDebt || 0)}
                   </span>
@@ -560,25 +563,25 @@ export const PartiesView: React.FC<PartiesViewProps> = ({ transactions, categori
               {/* Hesap Ekstresi Tablosu */}
               <div className="space-y-2 pt-2">
                 <span className="text-xs font-bold text-slate-800 block">
-                  İşlem Ekstresi ({selectedMetrics?.transactions.length || 0} kayıt)
+                  {localize("İşlem Ekstresi (", "Transaction statement (")}{selectedMetrics?.transactions.length || 0}{localize(" kayıt)", " records)")}
                 </span>
 
                 <div className="border border-slate-200 rounded-lg overflow-hidden">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-100 text-slate-700 font-semibold uppercase border-b border-slate-200">
-                        <th className="py-2 px-3">Tarih</th>
-                        <th className="py-2 px-3">Açıklama / Kalem</th>
-                        <th className="py-2 px-3">Kategori</th>
-                        <th className="py-2 px-3 text-center">Durum</th>
-                        <th className="py-2 px-3 text-right">Tutar</th>
+                        <th className="py-2 px-3">{translate('Tarih', 'Date')}</th>
+                        <th className="py-2 px-3">{translate('Açıklama / Kalem', 'Description / Item')}</th>
+                        <th className="py-2 px-3">{translate('Kategori', 'Category')}</th>
+                        <th className="py-2 px-3 text-center">{translate('Durum', 'Status')}</th>
+                        <th className="py-2 px-3 text-right">{translate('Tutar', 'Amount')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {(!selectedMetrics || selectedMetrics.transactions.length === 0) ? (
                         <tr>
                           <td colSpan={5} className="py-8 text-center text-slate-400">
-                            Bu cariye ait henüz bir harcama veya fatura hareketi bulunmuyor.
+                            {localize("Bu cariye ait henüz bir harcama veya fatura hareketi bulunmuyor.", "There are no expenses or invoices for this counterparty yet.")}
                           </td>
                         </tr>
                       ) : (

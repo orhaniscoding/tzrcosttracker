@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { encryptField } from "@cost-core/crypto";
 import { buildApp } from "../src/app.js";
 const SECRET = { jwtSecret: "test-jwt-secret-very-long-and-secure-1234", masterKey: "test-master-key-32-bytes-long-1234", blindIndexPepper: "test-pepper-for-blind-index-1234" };
 const PASSWORD = "Synthetic-Pass-1234";
@@ -17,7 +18,7 @@ describe("canonical money input", () => {
     const cat: any = await (app as any).categoryRepo.createCategory({ name: "MoneyCat" } as any); catId = cat.id;
   });
   afterEach(async () => { vi.restoreAllMocks(); await app.close(); });
-  async function mkAccount(name: string, bal: number) { const r = await app.inject({ method: "POST", url: "/api/accounts", headers: auth(token), payload: { name, type: "cash", currency: "TRY", initialBalance: bal } }); expect(r.statusCode).toBe(201); return JSON.parse(r.body); }
+  async function mkAccount(name: string, bal: number, currency = "TRY") { const r = await app.inject({ method: "POST", url: "/api/accounts", headers: auth(token), payload: { name, type: "cash", currency, initialBalance: bal } }); expect(r.statusCode).toBe(201); return JSON.parse(r.body); }
   async function postTx(payload: any) { const r = await app.inject({ method: "POST", url: "/api/transactions", headers: auth(token), payload }); expect(r.statusCode).toBe(201); return JSON.parse(r.body).transaction; }
   it("POST canonicalizes 0.1+0.2 to exactly 0.3 in stored tx and wallet", async () => {
     const acc = await mkAccount("NoisePost", 100);
@@ -75,5 +76,42 @@ describe("canonical money input", () => {
     r = await app.inject({ method: "PUT", url: "/api/accounts/" + used.id, headers: auth(token), payload: { initialBalance: 201 } }); expect(r.statusCode).toBe(409);
     r = await app.inject({ method: "PUT", url: "/api/accounts/" + used.id, headers: auth(token), payload: { currency: "USD" } }); expect(r.statusCode).toBe(409);
     expect(await balance(app, token, used.id)).toBe(200);
+  });
+  it("keeps a lower-case legacy wallet available to normalized expense writes", async () => {
+    const acc = await mkAccount("LegacyWallet", 100);
+    (app as any).sqlite.prepare("UPDATE accounts SET currency = ? WHERE id = ?").run("try", acc.id);
+    const tx = await postTx({ type: "expense", date: "2026-11-01T10:00:00.000Z", amount: 12, currency: "try", categoryId: catId, title: "Legacy wallet", accountFromId: acc.id, isPaid: true });
+    (app as any).sqlite.prepare("UPDATE transactions SET currency = ? WHERE id = ?").run("try", tx.id);
+    const renamed = await app.inject({ method: "PUT", url: "/api/transactions/" + tx.id, headers: auth(token), payload: { title: "Legacy wallet edit" } });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json()).toMatchObject({ currency: "TRY", title: "Legacy wallet edit" });
+    expect(await balance(app, token, acc.id)).toBe(88);
+  });
+
+  it("preserves the stored legacy amount and base amount when adding a personal offset", async () => {
+    const tx = await postTx({ type: "expense", date: "2026-11-01T10:00:00.000Z", amount: 1, currency: "USD", exchangeRate: 1.005, categoryId: catId, title: "Legacy expense", isPaid: false });
+    (app as any).sqlite.prepare("UPDATE transactions SET amount_encrypted = ?, base_amount_encrypted = ? WHERE id = ?")
+      .run(encryptField(1.001, SECRET.masterKey), encryptField(1.005, SECRET.masterKey), tx.id);
+    const edited = await app.inject({ method: "PUT", url: "/api/transactions/" + tx.id, headers: auth(token), payload: { paymentSource: "person_out_of_pocket", payerPersonName: "Synthetic payer" } });
+    expect(edited.statusCode).toBe(200);
+    const updated = edited.json();
+    const oto = await app.inject({ method: "GET", url: "/api/transactions/" + updated.otoKasaTransactionId, headers: auth(token) });
+    expect(oto.statusCode).toBe(200);
+    expect(oto.json()).toMatchObject({ amount: 1.001, baseAmount: 1.005 });
+    expect(updated).toMatchObject({ amount: 1.001, baseAmount: 1.005 });
+  });
+
+  it.each([[0.01, 0.49], [1_000_000_000_000, 100]])("rejects invalid FX for expense and transfer without ledger side effects (%s × %s)", async (amount, exchangeRate) => {
+    const from = await mkAccount("USD wallet", 100, "USD");
+    const to = await mkAccount("TRY wallet", 50);
+    const auditCount = await audits(app);
+    const expense = await app.inject({ method: "POST", url: "/api/transactions", headers: auth(token), payload: { type: "expense", date: "2026-11-01T10:00:00.000Z", amount, exchangeRate, currency: "USD", categoryId: catId, title: "Rejected conversion", accountFromId: from.id, isPaid: true } });
+    expect(expense.statusCode).toBe(400);
+    const transfer = await app.inject({ method: "POST", url: "/api/accounts/transfer", headers: auth(token), payload: { fromAccountId: from.id, toAccountId: to.id, amount, exchangeRate } });
+    expect(transfer.statusCode).toBe(400);
+    expect(await txCount(app, token)).toBe(0);
+    expect(await balance(app, token, from.id)).toBe(100);
+    expect(await balance(app, token, to.id)).toBe(50);
+    expect(await audits(app)).toBe(auditCount);
   });
 });
