@@ -42,7 +42,7 @@ async function fixture({ volume = '', project = 'costcore-test' } = {}) {
   if (project === null) delete childEnv.COSTCORE_COMPOSE_PROJECT;
   return {
     dir, cache, log, childEnv,
-    cleanup: () => rm(dir, { recursive: true, force: true }),
+    cleanup: () => rm(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 50 }),
   };
 }
 
