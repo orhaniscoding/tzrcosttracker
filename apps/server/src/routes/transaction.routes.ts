@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { and, eq, inArray } from "drizzle-orm";
-import { CreateTransactionSchema } from "@cost-core/types";
+import { CreateTransactionSchema, LedgerConversionError, normalizeLedgerCurrency } from "@cost-core/types";
 import { auditLogs, projects, categories, transactions } from "@cost-core/database";
 import { DomainError, GENERIC, effectOf, snapshot, money, sanitizeMoney } from "../financial-effects.js";
 import { AccountRepository, TransactionRepository, type TransactionReadScope } from "@cost-core/database";
@@ -19,6 +19,7 @@ export const transactionRoutes: FastifyPluginAsync = async (fastify) => {
   const key = config.masterKey; const pepper = config.blindIndexPepper;
 
   function sendError(reply: any, err: any) {
+    if (err instanceof LedgerConversionError) return reply.status(400).send({ error: 'Tutar veya kur dönüşümü desteklenen sınırların dışında.' });
     if (err instanceof DomainError) return reply.status(err.statusCode).send({ error: err.message });
     const msg = err && err.message ? String(err.message) : "";
     if (msg.includes("para birimi değiştirilemez")) return reply.status(409).send({ error: msg });
@@ -73,7 +74,7 @@ export const transactionRoutes: FastifyPluginAsync = async (fastify) => {
     const account = new AccountRepository(tx).getAccountInScope(id, walletScope, key);
     if (!account) throw new NotFoundError();
     if (validate && !account.isActive) throw new DomainError(400, 'Hesap aktif değil.');
-    if (validate && account.currency !== data.currency) throw new DomainError(400, 'Para birimi hesap para birimi ile eşleşmiyor.');
+    if (validate && normalizeLedgerCurrency(account.currency) !== data.currency) throw new DomainError(400, 'Para birimi hesap para birimi ile eşleşmiyor.');
   }
   function rejectLegacy(tx:any){ if(tx && tx.type==="transfer") throw new DomainError(409,"Legacy transfer kaydi degistirilemez."); }
   function accountOrThrow(id: string) {
@@ -175,7 +176,7 @@ export const transactionRoutes: FastifyPluginAsync = async (fastify) => {
       const account = new AccountRepository(tx).getAccountInScope(id, walletScope, key);
       if (!account) throw new NotFoundError();
       if (!account.isActive) throw new DomainError(400, 'Hesap aktif değil.');
-      if (account.currency !== data.currency) throw new DomainError(400, 'Para birimi hesap para birimi ile eşleşmiyor.');
+      if (normalizeLedgerCurrency(account.currency) !== data.currency) throw new DomainError(400, 'Para birimi hesap para birimi ile eşleşmiyor.');
     }
   }
 

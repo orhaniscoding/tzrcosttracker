@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, ShieldCheck, Key, Copy, Check } from 'lucide-react';
 import { ApiClient } from '../api/client.js';
+import { useLocale } from '../context/LocaleContext.js';
 
 interface TwoFactorModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface TwoFactorModalProps {
 }
 
 export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { t } = useLocale();
   const [step, setStep] = useState<'init' | 'setup' | 'done'>('init');
   const [setupData, setSetupData] = useState<{ secret: string; qrCodeUri: string; backupCodes: string[] } | null>(null);
   const [code, setCode] = useState('');
@@ -26,7 +28,7 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
       setSetupData(data);
       setStep('setup');
     } catch (err: any) {
-      setError(err.message || '2FA kurulumu başlatılamadı.');
+      setError(err.message || t('2FA kurulumu başlatılamadı.', 'Could not start 2FA setup.'));
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +49,7 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
       setStep('done');
       onSuccess();
     } catch (err: any) {
-      setError(err.message || 'Doğrulama kodu hatalı.');
+      setError(err.message || t('Doğrulama kodu hatalı.', 'The verification code is incorrect.'));
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +69,7 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-emerald-400" />
-            İki Aşamalı Doğrulama (2FA) Kurulumu
+            {t('İki Aşamalı Doğrulama (2FA) Kurulumu', 'Set Up Two-Factor Authentication (2FA)')}
           </h3>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
             <X className="h-5 w-5" />
@@ -87,14 +89,14 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
                 <Key className="h-8 w-8" />
               </div>
               <p className="text-slate-300">
-                Hesabınızı Google Authenticator, Microsoft Authenticator veya 1Password ile güvenceye alın. Giriş yaparken ve kritik maliyet onaylarında tek kullanımlık 6 haneli kod sorulur.
+                {t('Hesabınızı Google Authenticator, Microsoft Authenticator veya 1Password ile güvenceye alın. Giriş yaparken ve kritik maliyet onaylarında tek kullanımlık 6 haneli kod sorulur.', 'Secure your account with Google Authenticator, Microsoft Authenticator, or 1Password. You’ll enter a one-time 6-digit code when signing in or approving critical expenses.')}
               </p>
               <button
                 onClick={handleStartSetup}
                 disabled={isLoading}
                 className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 font-medium text-white transition disabled:opacity-50"
               >
-                {isLoading ? 'Hazırlanıyor...' : '2FA Kurulumunu Başlat'}
+                {isLoading ? t('Hazırlanıyor...', 'Preparing...') : t('2FA Kurulumunu Başlat', 'Start 2FA Setup')}
               </button>
             </div>
           )}
@@ -102,7 +104,7 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
           {step === 'setup' && setupData && (
             <form onSubmit={handleVerify} className="space-y-4">
               <p className="text-slate-300">
-                1. Authenticator uygulamanızda "Hesap Ekle" diyerek aşağıdaki anahtarı girin:
+                {t('1. Authenticator uygulamanızda "Hesap Ekle" diyerek aşağıdaki anahtarı girin:', '1. Select “Add Account” in your authenticator app and enter this key:')}
               </p>
 
               <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg flex items-center justify-between font-mono text-sm text-blue-400">
@@ -111,7 +113,7 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
                   type="button"
                   onClick={handleCopySecret}
                   className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-                  title="Kopyala"
+                  title={t('Kopyala', 'Copy')}
                 >
                   {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
                 </button>
@@ -119,7 +121,7 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
 
               <div>
                 <label className="block text-slate-400 font-medium mb-1">
-                  2. Uygulamanızın ürettiği 6 Haneli Kodu Girin *
+                  {t('2. Uygulamanızın ürettiği 6 Haneli Kodu Girin *', '2. Enter the 6-Digit Code From Your App *')}
                 </label>
                 <input
                   type="text"
@@ -133,7 +135,7 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
               </div>
 
               <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg">
-                <p className="font-semibold text-slate-200 mb-1">Acil Durum Kurtarma Kodlarınız:</p>
+                <p className="font-semibold text-slate-200 mb-1">{t('Acil Durum Kurtarma Kodlarınız:', 'Your Emergency Recovery Codes:')}</p>
                 <div className="grid grid-cols-2 gap-1 font-mono text-[11px] text-slate-400">
                   {setupData.backupCodes.map((c, i) => (
                     <div key={i}>{c}</div>
@@ -146,7 +148,7 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
                 disabled={isLoading || code.length !== 6}
                 className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-white transition disabled:opacity-50"
               >
-                {isLoading ? 'Doğrulanıyor...' : 'Doğrula ve Aktifleştir'}
+                {isLoading ? t('Doğrulanıyor...', 'Verifying...') : t('Doğrula ve Aktifleştir', 'Verify and Enable')}
               </button>
             </form>
           )}
@@ -156,15 +158,15 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({ isOpen, onClose,
               <div className="h-16 w-16 mx-auto rounded-full bg-emerald-950/60 border border-emerald-800 flex items-center justify-center text-emerald-400">
                 <ShieldCheck className="h-8 w-8" />
               </div>
-              <h4 className="text-sm font-bold text-white">İki Aşamalı Doğrulama Aktif!</h4>
+              <h4 className="text-sm font-bold text-white">{t('İki Aşamalı Doğrulama Aktif!', 'Two-Factor Authentication Is Enabled!')}</h4>
               <p className="text-slate-400">
-                Hesabınız en yüksek güvenlik standardına ulaştı.
+                {t('Hesabınız en yüksek güvenlik standardına ulaştı.', 'Your account now has an extra layer of protection.')}
               </p>
               <button
                 onClick={onClose}
                 className="px-6 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium transition"
               >
-                Kapat
+                {t('Kapat', 'Close')}
               </button>
             </div>
           )}

@@ -1,10 +1,12 @@
-# TZR Cost Tracker'a katkı
+# Contributing to TZR Cost Tracker
 
-Katkıları yerel ortamda sentetik verilerle doğrulayın.
+[Türkçe](docs/tr/CONTRIBUTING.md)
 
-## Geliştirme ortamı
+Use a clean checkout and synthetic records to build and verify changes. See the [installation guide](docs/INSTALL.md) for native SQLite build prerequisites and the [Docker guide](deploy/README.md) for the container workflow.
 
-Node.js 24 ve pnpm 12.16.1 kullanın. Yeni, yerel bir çalışma dizininde:
+## Run the checks
+
+Use Node.js 24 and pnpm 12.16.1. Run these commands from the repository root.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -12,14 +14,14 @@ pnpm -r rebuild
 pnpm exec turbo run test build --force
 ```
 
-SQLite yerel bağımlılığı için platformunuza uygun derleme araçları gerekebilir. Bu komutlar CI ile uyumludur; yayımlanacak kaynak ağacının temiz clone kurulum doğrulaması ayrı yayın kapısıdır. Windows ve WSL/Linux kanıtları tutulur; fiziksel macOS üzerinde canlı test yapılmadı. Docker ile denemek için yerel kurulum adımlarını izleyin. [Docker kurulumu](deploy/README.md)
+The Linux and Windows CI jobs run these checks and test the launchers. Linux CI also audits dependencies and starts the Docker distribution. State the operating systems and runtimes you tested, including whether a Linux run used WSL. For financial calculations, authorization, migrations, or recovery, describe the negative cases and rollback checks you ran.
 
-## Değişiklik gönderme
+## Open a pull request
 
-Bir değişiklik tek bir sorunu çözmeli. Sorunu, beklenen davranışı ve ilgili test sonucunu açıklayın. Mali hesap, yetki, migration ve kurtarma değişikliklerinde olumsuz senaryo ve rollback kanıtı ekleyin. Geçen testler tek başına gerçek mali veriyle kullanım kabulü oluşturmaz.
+1. Fork the repository and create a focused branch. Describe the problem, the intended behavior, and the checks you ran. Update the English and Turkish documentation together when behavior changes.
+2. Open a pull request against `main`. A maintainer must approve Actions runs from outside contributors on fork pull requests before CI starts.
+3. Update the branch against `main`, wait for `build-test` and `build-test-windows` to pass, and resolve review conversations before merging. The [main ruleset](https://github.com/orhaniscoding/tzrcosttracker/rules/27718371) requires pull requests and squash merges and blocks force pushes and deletion. The current approval threshold is zero for the single-maintainer repository. The required checks and conversation rule apply to maintainers as well. Pin Actions to full commit SHAs. The repository uses Dependabot alerts and secret scanning with push protection.
 
-Testlerde yalnız sentetik veriler ve izole geçici veritabanları kullanın. Gerçek firma/müşteri bilgisi, fatura, rapor, parola, anahtar, ortam dosyası, veritabanı, WAL veya ajan çıktısı göndermeyin. Güvenlik açıklarını SECURITY.md yönergesine göre bildirin.
+Use synthetic, isolated databases and fixtures in tests. Keep company and customer data, invoices, reports, passwords, keys, environment files, SQLite files and sidecars, and agent logs out of contributions. Report vulnerabilities through the [security policy](SECURITY.md).
 
-Önerdiğiniz değişikliği pull request olarak gönderin ve çalıştırdığınız kontrolleri açıklamaya ekleyin.
-
-Katkınızı gönderirken onu Apache-2.0 altında sunmaya hakkınız bulunduğundan emin olun. Üçüncü taraf kodların mevcut lisans ve telif bildirimlerini koruyun; yeni bağımlılıkları gerekçelendirin. Proje lisansı LICENSE, kaynak atfı NOTICE içindedir.
+Submit only work you have the right to contribute under [Apache-2.0](LICENSE). Preserve the copyright and license of third-party code and explain new dependencies. See [NOTICE](NOTICE), [third-party notices](THIRD_PARTY_NOTICES.md), and the [code of conduct](CODE_OF_CONDUCT.md).

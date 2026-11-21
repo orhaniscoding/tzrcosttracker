@@ -179,7 +179,7 @@ describe('V2 staged restore', () => {
     expect(rawPlaintext(row.custom_values_encrypted, masterKey)).toBe(oldValues);
   });
 
-  it('restores historical actor IDs carried by a V1 partial import', async () => {
+  it('restores historical actor IDs from an existing legacy ledger', async () => {
     const config = {
       host: '127.0.0.1', port: 4000,
       jwtSecret: 'synthetic restore JWT signing value',
@@ -197,21 +197,15 @@ describe('V2 staged restore', () => {
       const headers = { authorization };
       const title = 'V1 synthetic expense';
       const encryptedAmount = encryptField(24, config.masterKey);
-      const v1Payload = {
-        app: 'TZRCoster', format: 'tzrvault', version: '1.0', tables: {
-          categories: [{ id: 'v1-category', name: 'Synthetic V1 category', createdAt: timestamp, updatedAt: timestamp }],
-          transactions: [{
-            id: 'v1-expense', categoryId: 'v1-category', date: timestamp, createdAt: timestamp, updatedAt: timestamp,
-            amountEncrypted: encryptedAmount, baseAmountEncrypted: encryptedAmount,
-            titleEncrypted: encryptField(title, config.masterKey), titleBlindIndex: createBlindIndex(title, config.blindIndexPepper),
-            createdById: 'legacy-creator', approvedById: 'legacy-approver',
-          }],
-        },
-      };
-      const imported = await app.inject({ method: 'POST', url: '/api/backup/import', headers, payload: {
-        vaultData: encryptField(JSON.stringify(v1Payload), password).replace('enc:v1:', 'TZRVAULT:v1:'), backupPassword: password,
-      } });
-      expect(imported.statusCode).toBe(200);
+      app.sqlite.prepare('INSERT INTO categories (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run('v1-category', 'Synthetic V1 category', timestamp, timestamp);
+      app.sqlite.prepare(`INSERT INTO transactions (id, category_id, date, created_at, updated_at, amount_encrypted,
+        base_amount_encrypted, title_encrypted, title_blind_index, created_by_id, approved_by_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run('v1-expense', 'v1-category', timestamp, timestamp, timestamp,
+        encryptedAmount, encryptedAmount, encryptField(title, config.masterKey), createBlindIndex(title, config.blindIndexPepper),
+        'legacy-creator', 'legacy-approver');
+      new AuditLogRepository(app.db).logAction({ userId: 'current-admin', action: 'RESTORE',
+        entity: 'system_backup', entityId: 'synthetic-historical-import' }, config.masterKey);
       const exported = await app.inject({ method: 'POST', url: '/api/backup/export-v2', headers, payload: { backupPassword: password } });
       expect(exported.statusCode).toBe(200);
       const masterKey = deriveKey(config.masterKey);
@@ -284,7 +278,7 @@ describe('V2 staged restore', () => {
     });
   });
 
-  it('does not export a V2 vault after a V1 partial import leaves an unmatched OTO-Kasa entry', async () => {
+  it('does not export a V2 vault when an existing ledger has an unmatched OTO-Kasa entry', async () => {
     await withBackupAdmin(async (app, headers) => {
       const categoryId = '56b9be59-dad7-42fc-84d7-8b69c070f47e';
       app.sqlite.prepare('INSERT INTO categories (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')
@@ -298,18 +292,15 @@ describe('V2 staged restore', () => {
       } });
       expect(expense.statusCode).toBe(201);
       const expenseId = expense.json().transaction.id;
-      const v1 = await app.inject({ method: 'POST', url: '/api/backup/export', headers, payload: { backupPassword: password } });
-      expect(v1.statusCode).toBe(200);
+
       const switched = await app.inject({ method: 'PUT', url: `/api/transactions/${expenseId}`, headers, payload: {
         paymentSource: 'person_out_of_pocket', payerPersonName: 'Synthetic payer',
       } });
       expect(switched.statusCode).toBe(200);
       const healthy = await app.inject({ method: 'POST', url: '/api/backup/export-v2', headers, payload: { backupPassword: password } });
       expect(healthy.statusCode).toBe(200);
-      const imported = await app.inject({ method: 'POST', url: '/api/backup/import', headers, payload: {
-        vaultData: v1.json().vaultData, backupPassword: password,
-      } });
-      expect(imported.statusCode).toBe(200);
+      // Represent a database damaged by a previous version, without restoring a V1 vault.
+      app.sqlite.prepare(`UPDATE transactions SET oto_kasa_transaction_id = NULL, payment_source = 'company_account' WHERE id = ?`).run(expenseId);
       const count = app.sqlite.prepare('SELECT count(*) FROM audit_logs').pluck();
       const before = count.get();
       const transactions = app.sqlite.prepare('SELECT id, oto_kasa_transaction_id, payment_source FROM transactions ORDER BY id');
@@ -325,7 +316,7 @@ describe('V2 staged restore', () => {
   });
 
 
-  it('preserves wallet references when V1 partial import omits the wallet', async () => {
+  it('preserves historical wallet references when the wallet is absent', async () => {
     const config = {
       host: '127.0.0.1', port: 4000,
       jwtSecret: 'synthetic restore JWT signing value',
@@ -356,12 +347,15 @@ describe('V2 staged restore', () => {
         payload: { type: 'expense', date: timestamp, amount: 24, currency: 'TRY', categoryId: '56b9be59-dad7-42fc-84d7-8b69c070f47e',
           title: 'Synthetic expense', paymentSource: 'company_account', accountFromId: walletId } });
       expect(expense.statusCode).toBe(201);
-      const v1 = await source.inject({ method: 'POST', url: '/api/backup/export', headers: sourceHeaders,
-        payload: { backupPassword: password } });
-      expect(v1.statusCode).toBe(200);
-      const imported = await destination.inject({ method: 'POST', url: '/api/backup/import', headers: destinationHeaders,
-        payload: { vaultData: v1.json().vaultData, backupPassword: password } });
-      expect(imported.statusCode).toBe(200);
+      const categoryId = '56b9be59-dad7-42fc-84d7-8b69c070f47e';
+      destination.sqlite.prepare('INSERT INTO categories (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(categoryId, 'Synthetic category', timestamp, timestamp);
+      const row = source.sqlite.prepare(`SELECT id, category_id, date, created_at, updated_at, amount_encrypted,
+        base_amount_encrypted, title_encrypted, title_blind_index, created_by_id, account_from_id
+        FROM transactions WHERE id = ?`).raw().get(expense.json().transaction.id) as string[];
+      destination.sqlite.prepare(`INSERT INTO transactions (id, category_id, date, created_at, updated_at, amount_encrypted,
+        base_amount_encrypted, title_encrypted, title_blind_index, created_by_id, account_from_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(...row);
       const v2 = await destination.inject({ method: 'POST', url: '/api/backup/export-v2', headers: destinationHeaders,
         payload: { backupPassword: password } });
       expect(v2.statusCode).toBe(200);

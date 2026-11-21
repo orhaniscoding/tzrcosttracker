@@ -8,6 +8,12 @@ function deferred(){let res:any;const p=new Promise((r)=>{res=r;});return {p,res
 describe("session invalid handling",()=>{
  beforeEach(()=>{store.clear();ApiClient.setToken(null);});
  afterEach(()=>{ApiClient.setToken(null);vi.unstubAllGlobals();vi.restoreAllMocks();});
+ it('keeps the current bearer in memory and removes any old persisted token', () => {
+  store.set('costcore_token', 'old-persisted-token');
+  ApiClient.setToken('new-current-token');
+  expect(ApiClient.getToken()).toBe('new-current-token');
+  expect(store.has('costcore_token')).toBe(false);
+ });
  it("current 401 SESSION_INVALID clears token/storage and notifies once",async()=>{
   const listener=vi.fn(); const unsub=ApiClient.subscribeSessionInvalid(listener);
   ApiClient.setToken("tok1"); store.set("costcore_token","tok1");
