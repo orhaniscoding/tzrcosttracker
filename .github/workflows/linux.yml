@@ -23,5 +23,40 @@ jobs:
           node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level high
       - run: pnpm -r rebuild
       - run: pnpm exec turbo run test build --force
+      - run: node --test scripts/run-docker.node.mjs scripts/run-local.node.mjs
+      - name: Build and start the documented Docker distribution
+        env:
+          COSTCORE_COMPOSE_PROJECT: costcore-ci
+        run: |
+          set -eu
+          trap 'if test -f .cache/costcore-docker/local.env; then docker compose -p costcore-ci --env-file .cache/costcore-docker/local.env down -v; fi' EXIT
+          node scripts/run-docker.mjs up --wait
+          curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 2 http://127.0.0.1:18080/health
+          curl --fail --silent --show-error -D headers.txt -o /dev/null http://127.0.0.1:18080/
+          grep -qi '^content-security-policy:' headers.txt
+          grep -qi '^x-content-type-options: nosniff' headers.txt
+          grep -qi '^x-frame-options: DENY' headers.txt
+  build-test-windows:
+    runs-on: windows-latest
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+      DO_NOT_TRACK: 1
+      CI: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 12.16.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r rebuild
+      - run: pnpm exec turbo run test build --force
+      - run: node --test scripts/run-docker.node.mjs scripts/run-local.node.mjs

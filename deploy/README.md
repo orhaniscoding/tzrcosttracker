@@ -1,137 +1,111 @@
-# TZR Cost Tracker yerel Docker kurulumu
+# Local Docker deployment
 
-Bu adımları kendi bilgisayarınızda sentetik verilerle denemek için kullanın. Ürünün durumu ve güvenlik kapsamı ana belgede açıklanır. [TZR Cost Tracker](../README.md)
+[Türkçe](../docs/tr/DOCKER.md)
 
-## Önkoşullar
+Try TZR Cost Tracker with synthetic data on a local machine. Install Docker Engine or Docker Desktop with the `docker compose` plugin, and install Node.js 24 to use the launcher. On Windows, use Docker Desktop in Linux container mode. Windows and WSL2/Linux have been tested. ARM64 validation used QEMU emulation. Physical macOS and ARM machines remain unverified. [Installation guide](../docs/INSTALL.md)
 
-- Docker Engine/Desktop ve Compose eklentisi (`docker compose`).
-- Kaynak kodun yerel kopyası ve bu dizin.
-- Windows PowerShell veya POSIX kabuk.
+## Start and stop with the launcher
 
-Test edilen ortam: Windows ve WSL altında yerel Linux. ARM64 doğrulaması yalnızca QEMU emülasyonudur; fiziksel ARM donanımı değildir. macOS Docker ana makinesi amaçlanır ancak fiziksel macOS test edilmedi ve desteklenmiş sayılmaz.
+Run from the repository root. The launcher builds the images and runs Compose in the foreground.
 
-## Bileşenler
+```sh
+node scripts/run-docker.mjs up
+```
 
-- **API imajı:** iç port 4000, host üzerinde açılmaz; non-root `node` kullanıcısı (UID 1000); SQLite `/data` altında.
-- **Web imajı:** nginx; yalnızca `127.0.0.1:${WEB_PORT:-18080}` adresine bağlanır (varsayılan 18080).
-- **`cost-core-data` volume:** `/data` dizinini kalıcı tutar.
+Open the loopback address printed by the launcher. The default is `http://127.0.0.1:18080`. Run the following in a separate private terminal and enter the displayed key in the first-run wizard. The command prints the bootstrap key, so avoid shared terminal logs and screen recordings.
 
-## Ortam değişkenleri
+```sh
+node scripts/run-docker.mjs setup-key
+```
 
-Süreç ortamı için zorunlu değerler:
+The launcher stores independent keys, the selected port, the Compose project identity (`COSTCORE_COMPOSE_PROJECT`), and its initialization state in `.cache/costcore-docker/local.env`. On a clean Docker context it derives an identity from the checkout path; if any CostCore data volume already exists and the key file is missing, set `COSTCORE_COMPOSE_PROJECT` to the recorded installation name before starting so a moved checkout cannot create a second empty installation. A saved identity is reused after moving the checkout, and an explicit identity that differs from the saved one fails closed. Keep the env file private and backed up alongside its installation records. Restrict access to its parent directory and file on Windows. An interrupted first start can be retried with the same key file. After the first administrator exists, remove `BOOTSTRAP_TOKEN` from the env file; later `up` runs preserve the other keys and volume, and `setup-key` reports that no setup token is available.
 
-- `JWT_SECRET`: en az 32 karakter, güvenli rastgele.
-- `MASTER_KEY`: en az 32 karakter, güvenli rastgele.
-- `BLIND_INDEX_PEPPER`: en az 32 karakter, güvenli rastgele.
-- `BOOTSTRAP_TOKEN`: en az 32 karakter; ilk yönetici kurulumu için zorunlu, sonrasında isteğe bağlı.
-- `WEB_PORT`: isteğe bağlı; varsayılan 18080.
+Stop and remove the containers and network while keeping the named data volume:
 
-Anahtarları kullanıcı güvenli biçimde sağlar ve saklar. Değerler `VITE_*`, ön yüz, derleme argümanı, git veya günlük çıktısına yazılmaz; gerçek sırlar yazdırılmaz. `--env-file` ile açıkça verilen dosya kullanıldığı için Compose otomatik `.env` dosyasını okumaz; zorunlu sırlar süreç ortamından sağlanır.
+```sh
+node scripts/run-docker.mjs down
+```
 
-## Compose env dosyası
+## Run Compose manually
 
-`.cache/compose-empty.env` adında açıkça yeni ve boş bir dosya kullanın; böylece Compose otomatik `.env` dosyasını almak zorunda kalmaz. Dosya zaten varsa içeriğinin boş olduğunu kullanıcı doğrular; mevcut dosya kesilmez.
+The API runs as `node` (UID 1000), listens on the Compose network on port `4000`, and stores SQLite under `/data`. nginx serves the web app and forwards `/api/` and `/health` to the API. The web port binds to `127.0.0.1:${WEB_PORT:-18080}`. Compose normally names the persistent `cost-core-data` volume `<project>_cost-core-data`.
 
-Aşağıdaki iki örnekten yalnızca kullandığınız kabuğa uygun olanı kullanın.
+Use the manual path when an operator supplies secrets from an existing store. Provide independent, random values of at least 32 characters for `JWT_SECRET`, `MASTER_KEY`, `BLIND_INDEX_PEPPER`, and the first-run `BOOTSTRAP_TOKEN`. Preserve the first three when using the same volume. Keep the keys in the Compose process environment or its private env file, outside Git, build arguments, web configuration, and shared logs.
 
-PowerShell örneği:
+Choose the same `COSTCORE_COMPOSE_PROJECT` for installation, maintenance, and recovery. Use an explicit empty env file in the operator-managed setup to avoid Compose's implicit `.env` lookup. Create `.cache/compose-empty.env` without overwriting an existing file. Check that the file is regular and empty before proceeding. The following examples require you to put the keys in the current process environment first.
+
+```sh
+set -eu
+umask 077
+mkdir -p .cache
+test ! -L .cache/compose-empty.env
+touch .cache/compose-empty.env
+test -f .cache/compose-empty.env && test ! -s .cache/compose-empty.env || exit 1
+docker compose --env-file .cache/compose-empty.env -p "${COSTCORE_COMPOSE_PROJECT:?Set the Compose project name}" config --quiet
+docker compose --env-file .cache/compose-empty.env -p "$COSTCORE_COMPOSE_PROJECT" up --build -d --wait
+curl -fsS "http://127.0.0.1:${WEB_PORT:-18080}/health"
+```
 
 ```powershell
-New-Item -ItemType Directory -Force -Path .cache
-New-Item -ItemType File -Path .cache\compose-empty.env
+New-Item -ItemType Directory -Force .cache | Out-Null
+$composeEnvPath = '.cache/compose-empty.env'
+if (-not (Test-Path -LiteralPath $composeEnvPath)) {
+    New-Item -ItemType File -Path $composeEnvPath | Out-Null
+}
+$composeEnvFile = Get-Item -LiteralPath $composeEnvPath -Force
+if ($composeEnvFile.PSIsContainer -or $composeEnvFile.LinkType -or $composeEnvFile.Length -ne 0) {
+    throw 'Use an empty regular Compose environment file.'
+}
+if (-not $env:COSTCORE_COMPOSE_PROJECT) { throw 'Set the Compose project name.' }
+docker compose --env-file $composeEnvPath -p $env:COSTCORE_COMPOSE_PROJECT config --quiet
+if ($LASTEXITCODE) { throw 'Compose configuration failed.' }
+docker compose --env-file $composeEnvPath -p $env:COSTCORE_COMPOSE_PROJECT up --build -d --wait
+if ($LASTEXITCODE) { throw 'Compose startup failed.' }
+$webPort = if ($env:WEB_PORT) { $env:WEB_PORT } else { '18080' }
+Invoke-RestMethod "http://127.0.0.1:$webPort/health"
 ```
 
-POSIX kabuk örneği:
+Enter the supplied `BOOTSTRAP_TOKEN` on first run. The operator can remove it and recreate the API after the first administrator exists. Keep `JWT_SECRET`, `MASTER_KEY`, and `BLIND_INDEX_PEPPER` unchanged. Use `config --quiet` for validation because the full Compose configuration shows secret values. [VPS pilot procedure for removing the bootstrap key](VPS_PILOT_RUNBOOK.md#first-start-with-operator-managed-secrets)
+
+## Compose offline recovery
+
+Rehearse recovery on synthetic data. Legacy V1 backup routes are retired. Keep existing V1 files for possible offline conversion. V2 covers 11 tables in the supported database schema. Attachment data is outside the V2 contract. Before changing an image or schema, verify a V2 export, its password, and the previous deployment's keys and image. [Operations guide](../docs/OPERATIONS.md)
+
+Use a POSIX shell on the Docker host or in a WSL2 environment that accesses the same Docker context, checkout, and volume. The examples require an existing Compose project, an existing target database, and a previously built API image. Set `COSTCORE_COMPOSE_PROJECT` to the exact project name and `COSTCORE_COMPOSE_ENV_FILE` to that installation's env file. For a launcher installation, use its printed project name and `.cache/costcore-docker/local.env` in a clean shell without overriding key variables. For a manually managed installation, use its existing project name and explicit empty env file and supply the keys through the Compose process environment. Keep the same Docker context and Compose file throughout.
+
+Before proceeding, confirm the target project and volume. Compose must mount the existing `/data` volume. The `/data` directory must be owned by UID 1000 and allow no group or other access. The image creates it with `0700`. An incompatible existing volume or bind mount causes recovery to stop. Keep the previous database and sidecars in place.
 
 ```sh
-mkdir -p .cache
-touch .cache/compose-empty.env
+set -eu
+: "${COSTCORE_COMPOSE_PROJECT:?Set the existing Compose project name}"
+: "${COSTCORE_COMPOSE_ENV_FILE:?Set the existing Compose environment file}"
+test -f "$COSTCORE_COMPOSE_ENV_FILE" || exit 1
+costcore_compose() {
+  docker compose --env-file "$COSTCORE_COMPOSE_ENV_FILE" -f compose.yaml -p "$COSTCORE_COMPOSE_PROJECT" "$@"
+}
+docker volume inspect "${COSTCORE_COMPOSE_PROJECT}_cost-core-data" --format '{{.Name}}'
+costcore_compose stop api
+costcore_compose ps --all api
 ```
 
-
-## Çalıştırma komutları
-
-Tüm komutlar depo kökünden ve şu açık env dosyasıyla çalıştırılır:
+Confirm the API has stopped and no other process uses the database. Set `RECOVERY_DIR` to the absolute host directory containing `backup.vault`. The API user must be able to read this file. Set `RECOVERY_PASSWORD_FILE` to an operator-only host file containing the exact UTF-8 password bytes, without an extra newline. The vault directory is mounted read-only and the password file stays on the host. The recovery command reads the password through stdin and uses the target installation's `MASTER_KEY`, `BLIND_INDEX_PEPPER`, and valid `JWT_SECRET`. The example byte limit also covers SQLite sidecars.
 
 ```sh
-docker compose --env-file .cache/compose-empty.env config --quiet
-docker compose --env-file .cache/compose-empty.env build
-docker compose --env-file .cache/compose-empty.env up -d --force-recreate
-docker compose --env-file .cache/compose-empty.env ps
-```
-
-`config` her zaman `--quiet` ile kullanılır; sessiz olmayan tam config çıktısı sırları gösterebileceği için çalıştırılmaz.
-
-Sağlık ve arayüz adresleri (`WEB_PORT` farklıysa adreslerde o portu kullanın):
-
-- Sağlık: `http://127.0.0.1:18080/health`
-- Arayüz: `http://127.0.0.1:18080/`
-
-İlk yönetici kurulumu `BOOTSTRAP_TOKEN` ile kontrollü yapılır; varsayılan parola veya hesap yoktur.
-
-## Testten sonra durdurma
-
-Test ve tarayıcı kontrolünden sonra servisi durdurmak için:
-
-```sh
-docker compose --env-file .cache/compose-empty.env stop
-```
-
-`stop` yalnızca konteynerleri durdurur; `cost-core-data` volume içeriği ve verisi korunur.
-
-## Yükseltme ve geri dönüş sınırları
-
-İmaj veya şema yükseltmesinden önce veri ve anahtar yedeğini doğrulayın. V1 yedeği beş tabloyu kısmen geri yükler. V2 yedeği 11 tabloyu kapsar. Aşağıdaki çevrimdışı komutlar Linux üzerinde mevcut bir hedef SQLite veritabanı içindir. Ek dosyaları ve üretim pilotu için ayrı kurtarma doğrulaması gerekir.
-
-Yeni API imajı `/data` dizinini `node` kullanıcısına ait ve `0700` izinli oluşturur. Mevcut bir volume veya bind mount kullanıyorsanız, kurtarmadan önce hizmeti durdurun ve dizinin API kullanıcısına ait olduğunu, grup ve diğer kullanıcılara izin vermediğini doğrulayın. Bu koşul sağlanmazsa kurtarma komutu değişim yapmadan durur.
-
-Kurtarma için hedef uygulamanın `MASTER_KEY`, `BLIND_INDEX_PEPPER` ve mevcut yapılandırma doğrulamasını karşılayan `JWT_SECRET` değerlerini güvenli süreç ortamından sağlayın. Yedek dosyasının yolu, mevcut hedefin yolu ve SQLite veritabanı ile günlükleri için bayt sınırı ayrı argümanlardır. Yedek parolası stdin üzerinden EOF'a kadar, baytları değiştirilmeden okunur. Parolayı komut satırında veya kabuk geçmişinde tutmayın. Parolayı tam baytlarıyla üreten güvenli giriş veya özel dosya kullanın.
-
-Derlenmiş sunucu paketinin bulunduğu Linux ortamında örnek çağrı:
-
-```sh
-node apps/server/dist/recovery-cli.js restore /data/cost-core.sqlite 268435456 /recovery/backup.vault < /recovery/password
-```
-
-Komut, hedef dosyaya yazmadan önce yedeği doğrular ve eski veritabanının WAL dahil doğrulanmış bir kopyasını tutar. Sonuçtaki `rollback` alanı bu kopyanın yolunu verir. `markerRemovalSync` alanı `unconfirmed` ise yeni veritabanı yerinde doğrulanmıştır ancak güç kaybından sonra kurtarma işareti tekrar görünebilir. Yeni bir geri yüklemeye başlamadan önce çıktı ve dosya durumunu inceleyin.
-
-Bir kesintiden sonra sunucu bekleyen kurtarma işareti bildirirse, sunucu kapalıyken ve aynı veri dizinini kullanarak eski doğrulanmış kopyayı geri yerleştirin:
-
-```sh
-node apps/server/dist/recovery-cli.js rollback /data/cost-core.sqlite 268435456
-```
-
-Başarılı geri dönme `rolled-back` döndürür. `no-pending-recovery` durumunda önceki işlem kullanılabilir bir işaret bırakmamıştır. Geçersiz işaret, bilinmeyen veritabanı özeti veya etkin SQLite yan dosyası durumunda işlemi durdurup mevcut dosyaları inceleyin. İşareti veya yan dosyaları elle silmeyin. Geri döndükten sonra servisi başlatıp oturum ve mali toplamları doğrulayın.
-
-### Compose ile çevrimdışı kurtarma
-
-Her komutta hedef kurulumun Compose proje adını, yapılandırma dosyalarını ve güvenli süreç ortamını kullanın. Önce API'yi durdurun. API'nin durduğunu ve başka sürecin aynı veritabanını kullanmadığını doğrulayın. Devam etmeden önce projenin mevcut `cost-core-data` volume'ünü ve içindeki hedef SQLite dosyasını doğrulayın. Bu komutlar önceden derlenmiş API imajını kullanır.
-
-```sh
-docker compose --env-file .cache/compose-empty.env stop api
-docker compose --env-file .cache/compose-empty.env ps --all api
-```
-
-Aşağıdaki örnek POSIX kabuğu içindir. `RECOVERY_DIR` Docker ana makinesinde `backup.vault` dosyasının bulunduğu mutlak dizindir. UID 1000 dosyayı okuyabilmelidir. `RECOVERY_PASSWORD_FILE` ana makinedeki, yalnız operatörün okuyabildiği parola dosyasıdır. Dosya parolanın tam UTF-8 baytlarını içermelidir. Parola dosyası konteynere bağlanmaz.
-
-```sh
-docker compose --env-file .cache/compose-empty.env run --rm --no-deps --pull never -T \
-  --volume "${RECOVERY_DIR:?Kurtarma dizinini belirtin}:/recovery:ro" \
+costcore_compose run --rm --no-deps --pull never -T \
+  --volume "${RECOVERY_DIR:?Set the absolute recovery directory}:/recovery:ro" \
   api node apps/server/dist/recovery-cli.js restore \
   /data/cost-core.sqlite 268435456 /recovery/backup.vault \
-  < "${RECOVERY_PASSWORD_FILE:?Parola dosyasını belirtin}"
+  < "${RECOVERY_PASSWORD_FILE:?Set the path to the private backup password file}"
 ```
 
-Compose, tek seferlik konteynere API'nin mevcut `/data` volume'ünü bağlar. Komut mevcut API kullanıcısıyla çalışır. Sonuçta `restored` ve `markerRemovalSync: confirmed` görünürse API'yi yeniden başlatın. Yeni oturum açıp proje kayıtlarını, denetim zincirini ve mali toplamları kontrol edin. Doğrulanmış önceki veritabanı kopyasının yolunu kurtarma kaydına alın.
+`DATABASE_IN_USE` means another process still holds the data directory lease. On `restored`, record the returned `rollback` path. The verified previous database copy includes the committed WAL data. If `markerRemovalSync` is `unconfirmed`, inspect the output and target state before retrying because a crash may make the marker reappear. Once the result is confirmed, start the same installation and restart web so nginx resolves any changed API address. Sign in again and verify projects, totals, and audit integrity.
 
-Kesinti bir kurtarma işareti bıraktıysa, API duruyorken aynı Compose projesinde şu komutu kullanın.
+An interrupted restore can leave a pending recovery marker. With the API stopped and the same Compose context, run:
 
 ```sh
-docker compose --env-file .cache/compose-empty.env run --rm --no-deps --pull never -T \
+costcore_compose run --rm --no-deps --pull never -T \
   api node apps/server/dist/recovery-cli.js rollback \
   /data/cost-core.sqlite 268435456 < /dev/null
 ```
 
-`down -v`, `prune` veya volume silme kullanılmaz. VPS, DNS, güvenlik duvarı, TLS ve barındırma tarifi bu kılavuzda yer almaz.
-
-Windows Docker Desktop/WSL2 Linux konteyner modunu kullanmalıdır; macOS fiziksel olarak doğrulanmadı, ARM64 QEMU emülasyonu fiziksel donanım sayılmaz.
+`rolled-back` confirms the previous database was restored. `no-pending-recovery` means the command found no pending marker. If the marker is invalid, the active database is unknown, or a SQLite sidecar blocks recovery, preserve the files and inspect the installation. Keep the named volume and recovery files through verification. Keep `down -v`, volume deletion, and Docker pruning outside this procedure. [VPS pilot runbook](VPS_PILOT_RUNBOOK.md)

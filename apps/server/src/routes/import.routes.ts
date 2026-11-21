@@ -1,15 +1,32 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { randomUUID } from 'node:crypto';
-import { categories, TransactionRepository, type CostCoreDatabase } from '@cost-core/database';
+import { createHash, randomUUID } from 'node:crypto';
+import { AccountRepository, AuditLogRepository, accounts, categories, TransactionRepository, type CostCoreDatabase } from '@cost-core/database';
+import { eq } from 'drizzle-orm';
 import * as XLSX from 'xlsx';
-import { z } from '@cost-core/types';
+import { convertPositiveLedgerAmount, LedgerConversionError, normalizeLedgerCurrency, z } from '@cost-core/types';
 import { resolveImportSource, readWorkbookBounded, assertWorkbookLimits, sheetRows, ImportSourceError } from '../import-source.js';
 import { ForbiddenError, NotFoundError, SessionInvalidError, isValidPathId } from '../services/project-access.service.js';
+import { parseImportAmount, parseImportCurrency, parseImportDate, parseImportExchangeRate, parseImportPaid, SpreadsheetImportValueError } from '../services/spreadsheet-import-rules.js';
+import { effectOf, snapshot } from '../financial-effects.js';
 
 class ImportValidationError extends Error {
   constructor(message = 'Geçersiz içe aktarma parametreleri.') { super(message); }
 }
 type ImportTx = Parameters<Parameters<CostCoreDatabase['transaction']>[0]>[0];
+
+function importSheetRows(workbook: XLSX.WorkBook, sheetName?: string) {
+  const result = sheetRows(workbook, sheetName);
+  const ref = workbook.Sheets[result.sheetName]['!ref'];
+  let firstRow = ref ? XLSX.utils.decode_range(ref).s.r : 0;
+  let start = 0;
+  while (start < result.rows.length && (!result.rows[start] || result.rows[start].every(value => value === null || value === undefined || (typeof value === 'string' && !value.trim())))) start++;
+  firstRow += start;
+  return { rows: result.rows.slice(start), firstRow };
+}
+
+function importSheetDigest(rows: unknown[][], firstRow: number): string {
+  return createHash('sha256').update(JSON.stringify([firstRow, rows])).digest('hex');
+}
 
 const AnalyzeSchema = z.object({
   base64: z.string().optional(),
@@ -20,6 +37,7 @@ const ExecuteImportSchema = z.object({
   base64: z.string().optional(),
   sheetsUrl: z.string().optional(),
   sheetName: z.string().optional(),
+  sheetDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   projectId: z.string().refine(isValidPathId),
   mapping: z.object({
     dateCol: z.number().int().min(0),
@@ -30,6 +48,9 @@ const ExecuteImportSchema = z.object({
     partyCol: z.number().int().min(0).optional(),
     isPaidCol: z.number().int().min(0).optional(),
     payerPersonCol: z.number().int().min(0).optional(),
+    currencyCol: z.number().int().min(0).optional(),
+    exchangeRateCol: z.number().int().min(0).optional(),
+    accountFromCol: z.number().int().min(0).optional(),
   }),
 });
 
@@ -74,12 +95,13 @@ export const importRoutes: FastifyPluginAsync = async (fastify) => {
     workbook = readWorkbookBounded(buf); assertWorkbookLimits(workbook);
 
     sheetSummaries = workbook.SheetNames.map((name) => {
-      const { rows } = sheetRows(workbook, name);
+      const { rows, firstRow } = importSheetRows(workbook, name);
       const headers = rows.length > 0 ? rows[0].map(String) : [];
       const preview = rows.slice(1, 6); // İlk 5 örnek satır
 
       return {
         sheetName: name,
+        sheetDigest: importSheetDigest(rows, firstRow),
         headers,
         totalRows: Math.max(0, rows.length - 1),
         preview,
@@ -106,15 +128,19 @@ export const importRoutes: FastifyPluginAsync = async (fastify) => {
       return parse.data;
     });
 
-    const { base64, sheetsUrl, sheetName, projectId, mapping } = input;
+    const { base64, sheetsUrl, sheetName, sheetDigest, projectId, mapping } = input;
     let workbook: XLSX.WorkBook;
     let rows: any[][];
-    try { const buf = await resolveImportSource({ base64, sheetsUrl }); workbook = readWorkbookBounded(buf); assertWorkbookLimits(workbook); const r = sheetRows(workbook, sheetName); rows = r.rows; } catch (e:unknown) { const st=e instanceof ImportSourceError?e.statusCode:400; return reply.status(st).send({ error: e instanceof ImportSourceError?e.message:'Kaynak okunamad\u0131.' }); }
+    let firstRow = 0;
+    try { const buf = await resolveImportSource({ base64, sheetsUrl }); workbook = readWorkbookBounded(buf); assertWorkbookLimits(workbook); const r = importSheetRows(workbook, sheetName); rows = r.rows; firstRow = r.firstRow; } catch (e:unknown) { const st=e instanceof ImportSourceError?e.statusCode:400; return reply.status(st).send({ error: e instanceof ImportSourceError?e.message:'Kaynak okunamad\u0131.' }); }
     // One synchronous write transaction owns final authorization, target and ALL
-    // categories/main/OTO records. Full financial/audit import remains a separate gate.
+    // categories, transactions, balances, and audit records.
     const result = db.transaction(tx => {
     freshAdmin(tx, request);
     const targetProject = targetInTx(tx, projectId);
+    if (sheetDigest && sheetDigest !== importSheetDigest(rows, firstRow)) {
+      return null;
+    }
     if (rows.length < 2) throw new ImportValidationError('Tabloda aktarılacak veri satırı bulunamadı.');
     const transactionRepo = new TransactionRepository(tx as unknown as CostCoreDatabase);
 
@@ -143,35 +169,56 @@ export const importRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     let importedCount = 0;
+    const skippedRows: Array<{ rowNumber: number; code: string }> = [];
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (!row) continue;
+      if (!row) { skippedRows.push({ rowNumber: firstRow + i + 1, code: 'TITLE_REQUIRED' }); continue; }
 
+      try {
       const titleRaw = row[mapping.titleCol];
       const amountRaw = row[mapping.amountCol];
-      if (!titleRaw || !amountRaw) continue;
+      if (!titleRaw) throw new SpreadsheetImportValueError('TITLE_REQUIRED', 'Başlık boş olamaz.');
+      if (amountRaw === undefined || amountRaw === null || amountRaw === '') throw new SpreadsheetImportValueError('AMOUNT_REQUIRED', 'Tutar boş olamaz.');
 
       const title = String(titleRaw).trim();
-      const amount = parseFloat(String(amountRaw).replace(/[^0-9.-]/g, ''));
-      if (isNaN(amount) || amount <= 0) continue;
-
-      // Tarih çözümle
-      const dateRaw = row[mapping.dateCol];
-      let dateIso = new Date().toISOString();
-      if (dateRaw instanceof Date) {
-        dateIso = dateRaw.toISOString();
-      } else if (dateRaw) {
-        const parsed = new Date(dateRaw);
-        if (!isNaN(parsed.getTime())) dateIso = parsed.toISOString();
+      if (!title) throw new SpreadsheetImportValueError('TITLE_REQUIRED', 'Başlık boş olamaz.');
+      const amount = parseImportAmount(amountRaw);
+      const dateIso = parseImportDate(row[mapping.dateCol]);
+      const currency = parseImportCurrency(mapping.currencyCol === undefined ? undefined : row[mapping.currencyCol], targetProject.currency, amountRaw);
+      const exchangeRate = parseImportExchangeRate(mapping.exchangeRateCol === undefined ? undefined : row[mapping.exchangeRateCol], currency, targetProject.currency);
+      try { convertPositiveLedgerAmount(amount, exchangeRate); } catch (error) {
+        if (!(error instanceof LedgerConversionError)) throw error;
+        throw new SpreadsheetImportValueError('EXCHANGE_RATE_INVALID', 'Döviz kuru ile hesaplanan tutar geçersiz.');
       }
 
-      // Kategori çözümle
+      // Cari & Tedarikçi
+      const party = mapping.partyCol !== undefined && row[mapping.partyCol] ? String(row[mapping.partyCol]).trim() : undefined;
+
+      // Ödeme Durumu
+      const isPaid = parseImportPaid(mapping.isPaidCol === undefined ? undefined : row[mapping.isPaidCol]);
+
+      // Şahsın Cebinden Ödeme (Oto-Kasa)
+      const payerPerson = mapping.payerPersonCol !== undefined && row[mapping.payerPersonCol]
+        ? String(row[mapping.payerPersonCol]).replace(/✅/g, '').replace(/🔗/g, '').trim()
+        : undefined;
+
+      let accountFromId: string | undefined;
+      if (mapping.accountFromCol !== undefined && row[mapping.accountFromCol]) {
+        accountFromId = String(row[mapping.accountFromCol]).trim();
+        if (payerPerson && accountFromId) throw new SpreadsheetImportValueError('PAYMENT_SOURCE_CONFLICT', 'Şahıs ödemesi ile şirket hesabı birlikte kullanılamaz.');
+      }
+      if (accountFromId) {
+        const account = tx.select().from(accounts).where(eq(accounts.id, accountFromId)).get();
+        if (!account || !account.isActive || normalizeLedgerCurrency(account.currency) !== currency || (account.projectId !== null && account.projectId !== targetProject.id)) throw new SpreadsheetImportValueError('PAYMENT_ACCOUNT_INVALID', 'Ödeme hesabı geçersiz, pasif, kapsam dışı veya para birimiyle uyumsuz.');
+      }
+      if (isPaid && !payerPerson && !accountFromId) throw new SpreadsheetImportValueError('PAYMENT_ACCOUNT_REQUIRED', 'Ödenmiş şirket gideri için kullanılabilir ödeme hesabı gerekir.');
+
+      // Create categories only after every row value has passed validation.
       let catId: string;
       if (mapping.categoryCol !== undefined && row[mapping.categoryCol]) {
         const catName = String(row[mapping.categoryCol]).trim();
         catId = getOrCreateCat(catName);
-
         if (mapping.subCategoryCol !== undefined && row[mapping.subCategoryCol]) {
           const subName = String(row[mapping.subCategoryCol]).trim();
           catId = getOrCreateCat(subName, catId);
@@ -180,36 +227,20 @@ export const importRoutes: FastifyPluginAsync = async (fastify) => {
         catId = getOrCreateCat('Genel Harcamalar');
       }
 
-      // Cari & Tedarikçi
-      const party = mapping.partyCol !== undefined && row[mapping.partyCol] ? String(row[mapping.partyCol]).trim() : undefined;
-
-      // Ödeme Durumu
-      let isPaid = true;
-      if (mapping.isPaidCol !== undefined && row[mapping.isPaidCol]) {
-        const paidVal = String(row[mapping.isPaidCol]).toLowerCase();
-        if (paidVal.includes('bekliyor') || paidVal.includes('vadeli') || paidVal.includes('hayır') || paidVal.includes('false')) {
-          isPaid = false;
-        }
-      }
-
-      // Şahsın Cebinden Ödeme (Oto-Kasa)
-      const payerPerson = mapping.payerPersonCol !== undefined && row[mapping.payerPersonCol]
-        ? String(row[mapping.payerPersonCol]).replace(/✅/g, '').replace(/🔗/g, '').trim()
-        : undefined;
-
-      transactionRepo.createTransaction(
+      const created = transactionRepo.createTransaction(
         {
           projectId: targetProject.id,
           type: 'expense',
           date: dateIso,
           amount,
-          currency: 'TRY',
-          exchangeRate: 1,
+          currency,
+          exchangeRate,
           paymentMethod: 'Banka',
           categoryId: catId,
           title,
           party,
           paymentSource: payerPerson ? 'person_out_of_pocket' : 'company_account',
+          accountFromId,
           payerPersonName: payerPerson,
           isPaid,
           status: isPaid ? 'approved' : 'pending',
@@ -218,17 +249,29 @@ export const importRoutes: FastifyPluginAsync = async (fastify) => {
         config.masterKey,
         config.blindIndexPepper
       );
+      const effect = effectOf(created.transaction);
+      if (effect) new AccountRepository(tx as unknown as CostCoreDatabase).adjustBalance(effect.accountId, effect.delta, config.masterKey);
+      new AuditLogRepository(tx as unknown as CostCoreDatabase).logAction({ userId: authUser.id, action: 'CREATE', entity: 'transaction', entityId: created.transaction.id, ipAddress: request.ip, userAgent: request.headers['user-agent'], previousState: null, newState: snapshot(created.transaction) }, config.masterKey);
 
       importedCount++;
+      } catch (error) {
+        if (error instanceof SpreadsheetImportValueError) {
+          skippedRows.push({ rowNumber: firstRow + i + 1, code: error.code });
+          continue;
+        }
+        throw error;
+      }
     }
 
     return {
       success: true,
       message: `${importedCount} adet harcama kaydı başarıyla sisteme aktarıldı!`,
       importedCount,
+      skippedRows,
       project: targetProject,
     };
     }, { behavior: 'immediate' });
+    if (!result) return reply.status(409).send({ code: 'IMPORT_SHEET_CHANGED', error: 'Tablo değişti. Yeniden analiz edin.' });
     return reply.send(result);
     } catch (error) { return importError(reply, error); }
   });

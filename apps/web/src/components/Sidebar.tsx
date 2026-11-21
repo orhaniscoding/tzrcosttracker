@@ -1,3 +1,4 @@
+import { useLocale } from '../context/LocaleContext.js';
 import React, { useState, useEffect } from 'react';
 import {
   Table,
@@ -95,78 +96,79 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenPinSwitch,
   onLogout,
 }) => {
+  const { t } = useLocale();
   const { settings } = useTheme();
 
   const navGroups: NavGroup[] = [
     {
       id: 'expenses',
-      title: 'Maliyet & Harcamalar',
+      title: t("Maliyet & Harcamalar", "Costs and expenses"),
       icon: Receipt,
       items: [
-        { id: 'transactions_list', label: 'Harcama Tablosu', icon: Table, badge: 'Excel' },
-        { id: 'transactions_new', label: 'Yeni Harcama Ekle', icon: PlusCircle },
-        { id: 'parties_ledger', label: 'Cari & Taşeron Karnesi', icon: Building2, badge: 'Ekstre' },
+        { id: 'transactions_list', label: t("Harcama Tablosu", "Expense register"), icon: Table, badge: 'Excel' },
+        { id: 'transactions_new', label: t("Yeni Harcama Ekle", "Add an expense"), icon: PlusCircle },
+        { id: 'parties_ledger', label: t("Cari & Taşeron Karnesi", "Supplier and contractor ledger"), icon: Building2, badge: t("Ekstre", "Statement") },
       ],
     },
     {
       id: 'cash',
-      title: 'Kasa & Finansman',
+      title: t("Kasa & Finansman", "Cash and funding"),
       icon: Wallet,
       items: [
-        { id: 'kasa_list', label: 'Kasa & Nakit Girişleri', icon: Wallet },
-        { id: 'accounts_hub', label: "Likidite & Cüzdanlar Hub'ı", icon: Landmark, badge: 'Hub' },
-        { id: 'kasa_balance', label: 'Bilanço & Vade Radarı', icon: Scale },
-        { id: 'kasa_contributions', label: 'Şahıs / Ortak Bilançosu', icon: Users, badge: 'Oto-Kasa' },
+        { id: 'kasa_list', label: t("Kasa & Nakit Girişleri", "Cash and deposits"), icon: Wallet },
+        { id: 'accounts_hub', label: t("Likidite & Cüzdanlar Hub'ı", "Cash and bank accounts"), icon: Landmark, badge: 'Hub' },
+        { id: 'kasa_balance', label: t("Bilanço & Vade Radarı", "Balances and due dates"), icon: Scale },
+        { id: 'kasa_contributions', label: t("Şahıs / Ortak Bilançosu", "Personal and partner balances"), icon: Users, badge: t("Oto-Kasa", "Personal funds") },
       ],
     },
     {
       id: 'reports',
-      title: 'Raporlar & Analiz',
+      title: t("Raporlar & Analiz", "Reports and analysis"),
       icon: FileSpreadsheet,
       items: [
-        { id: 'reports_charts', label: 'Finansal Grafikler', icon: BarChart3 },
-        { id: 'reports_date_range', label: 'Tarih Aralıklı Rapor', icon: Calendar },
-        { id: 'reports_daily', label: 'Günlük Kasa Mizanı', icon: CalendarDays },
-        { id: 'reports_yearly', label: '12 Aylık Yıllık Bilanço', icon: FileSpreadsheet },
+        { id: 'reports_charts', label: t("Finansal Grafikler", "Financial charts"), icon: BarChart3 },
+        { id: 'reports_date_range', label: t("Tarih Aralıklı Rapor", "Date range report"), icon: Calendar },
+        { id: 'reports_daily', label: t("Günlük Kasa Mizanı", "Daily cash report"), icon: CalendarDays },
+        { id: 'reports_yearly', label: t("12 Aylık Yıllık Bilanço", "12-month balance report"), icon: FileSpreadsheet },
       ],
     },
     {
       id: 'categories',
-      title: 'Kategori & Kalemler',
+      title: t("Kategori & Kalemler", "Categories and items"),
       icon: FolderTree,
       items: [
-        { id: 'categories_tree', label: 'Kategori Ağacı & Döküm', icon: FolderTree },
-        { id: 'categories_new', label: 'Yeni Kategori Tanımla', icon: Tag },
+        { id: 'categories_tree', label: t("Kategori Ağacı & Döküm", "Category breakdown"), icon: FolderTree },
+        { id: 'categories_new', label: t("Yeni Kategori Tanımla", "Create a category"), icon: Tag },
       ],
     },
     {
       id: 'users',
-      title: 'Kullanıcılar & Yetkiler',
+      title: t("Kullanıcılar & Yetkiler", "Users and roles"),
       icon: Users,
       items: [
-        { id: 'users_list', label: 'Kayıtlı Kullanıcılar', icon: UserCheck },
-        { id: 'users_new', label: 'Yeni Kullanıcı Tanımla', icon: UserPlus },
-        { id: 'users_pin', label: 'Kişisel Hızlı PIN Ayarı', icon: KeyRound },
+        { id: 'users_list', label: t("Kayıtlı Kullanıcılar", "Users"), icon: UserCheck },
+        { id: 'users_new', label: t("Yeni Kullanıcı Tanımla", "Add a user"), icon: UserPlus },
+        { id: 'users_pin', label: t("Kişisel Hızlı PIN Ayarı", "Personal PIN"), icon: KeyRound },
       ],
     },
     {
       id: 'security',
-      title: 'Denetim & Güvenlik',
+      title: t("Denetim & Güvenlik", "Audit and security"),
       icon: ShieldCheck,
       items: [
-        { id: 'audit_logs', label: 'İşlem Logları Tablosu', icon: ShieldCheck },
-        { id: 'audit_verify', label: 'Mühür Doğrulama (SHA-256)', icon: Lock },
-        { id: 'backup_vault', label: 'Şifreli Yedek (.tzrvault)', icon: Lock, badge: 'Vault' },
-        { id: 'trash_list', label: 'Çöp Kutusu & Geri Alma', icon: Trash2 },
-        { id: 'security_lock', label: 'Kilit & Zaman Aşımı', icon: KeyRound },
+        { id: 'audit_logs', label: t("İşlem Logları Tablosu", "Audit log"), icon: ShieldCheck },
+        { id: 'audit_verify', label: t("Mühür Doğrulama (SHA-256)", "Verify integrity (SHA-256)"), icon: Lock },
+        { id: 'backup_vault', label: t("Şifreli Yedek (.tzrvault)", "Encrypted backup (.tzrvault)"), icon: Lock, badge: 'Vault' },
+        { id: 'trash_list', label: t("Çöp Kutusu & Geri Alma", "Trash and restore"), icon: Trash2 },
+        { id: 'security_lock', label: t("Kilit & Zaman Aşımı", "Screen lock and timeout"), icon: KeyRound },
       ],
     },
     {
       id: 'settings',
-      title: 'Sistem Ayarları',
+      title: t("Sistem Ayarları", "Settings"),
       icon: Settings,
       items: [
-        { id: 'settings_branding', label: 'Firma Bilgisi & Logo', icon: Building2 },
+        { id: 'settings_branding', label: t("Firma Bilgisi & Logo", "Company details and logo"), icon: Building2 },
       ],
     },
   ];
@@ -245,15 +247,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {auditVerified === true ? (
               <>
                 <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
-                <span className="truncate">Kriptografik Mühür: Kusursuz</span>
+                <span className="truncate">{t("Kriptografik Mühür: Kusursuz", "Audit integrity verified")}</span>
               </>
             ) : auditVerified === false ? (
               <>
                 <ShieldAlert className="h-4 w-4 shrink-0 text-rose-400" />
-                <span className="truncate">UYARI: Kurcalama Tespit Edildi!</span>
+                <span className="truncate">{t("UYARI: Kurcalama Tespit Edildi!", "Warning: audit verification failed")}</span>
               </>
             ) : (
-               <span>Mühür durumu bilinmiyor</span>
+               <span>{t("Mühür durumu bilinmiyor", "Audit integrity unknown")}</span>
             )}
           </div>
         </div>}
@@ -340,11 +342,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           disabled={!isValidRole(role)}
           onClick={() => { if (isValidRole(role)) onOpenPinSwitch(); }}
           className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-amber-300 bg-amber-950/40 border border-amber-800/60 hover:bg-amber-900/50 transition"
-          title="Şantiyede 4 haneli PIN ile başka kullanıcıya geç"
+          title={t("Şantiyede 4 haneli PIN ile başka kullanıcıya geç", "Switch accounts using a four-digit PIN")}
         >
           <div className="flex items-center gap-2">
             <KeyRound className="h-3.5 w-3.5 text-amber-400" />
-            <span>Kullanıcı Değiştir</span>
+            <span>{t("Kullanıcı Değiştir", "Switch user")}</span>
           </div>
           <span className="text-[10px] bg-amber-400/20 px-1.5 py-0.2 rounded font-mono">PIN</span>
         </button>
@@ -355,7 +357,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800 transition"
         >
           <Lock className="h-3.5 w-3.5 text-blue-400" />
-          <span>2FA Güvenlik Ayarları</span>
+          <span>{t("2FA Güvenlik Ayarları", "Two-factor authentication")}</span>
         </button>
 
         {userName && (
@@ -364,10 +366,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onLogout}
               className="text-rose-400 hover:text-rose-300 text-[11px] font-semibold flex items-center gap-1"
-              title="Çıkış Yap"
+              title={t("Çıkış Yap", "Sign out")}
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span>Çıkış</span>
+              <span>{t("Çıkış", "Sign out")}</span>
             </button>
           </div>
         )}

@@ -1,4 +1,4 @@
-import type { Transaction } from '@cost-core/types';
+import { cashEffectOf, isOtoKasaIncome, isRecognizedStatus, roundLedgerMoney as money, type Transaction } from '@cost-core/types';
 
 export type CurrencyReportTotals = {
   totalIncome: number;
@@ -14,8 +14,6 @@ export type CurrencyReportTotals = {
   unrecognizedCount: number;
 };
 
-const money = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
-
 function emptyTotals(): CurrencyReportTotals {
   return { totalIncome: 0, totalExpense: 0, netBalance: 0, transactionCount: 0, totalPaidExpense: 0, companyPaidExpenseTotal: 0, personFundedExpenseTotal: 0, totalPendingExpense: 0, cashFlowNet: 0, otoKasaExcludedTotal: 0, unrecognizedCount: 0 };
 }
@@ -24,22 +22,21 @@ function summarize(transactions: readonly Transaction[]): CurrencyReportTotals {
   const totals = emptyTotals();
   for (const t of transactions) {
     if (t.deletedAt) continue;
-    if (t.status !== 'approved' && t.status !== 'pending' && t.status !== 'paid') {
+    if (!isRecognizedStatus(t.status)) {
       totals.unrecognizedCount++;
       continue;
     }
     const amount = money(t.amount);
     const person = t.paymentSource === 'person_out_of_pocket';
-    const otoIncome = t.type === 'income' && (Boolean(t.otoKasaTransactionId) || person);
-    if (otoIncome) {
+    if (isOtoKasaIncome(t)) {
       totals.otoKasaExcludedTotal += amount;
       continue;
     }
     if (t.type === 'transfer') continue;
+    totals.cashFlowNet += cashEffectOf(t);
     if (t.type === 'income') {
       totals.transactionCount++;
       totals.totalIncome += amount;
-      if (!person && t.isPaid !== false && t.status !== 'pending') totals.cashFlowNet += amount;
     } else if (t.type === 'expense') {
       totals.transactionCount++;
       totals.totalExpense += amount;
@@ -48,7 +45,6 @@ function summarize(transactions: readonly Transaction[]): CurrencyReportTotals {
         if (person) totals.personFundedExpenseTotal += amount;
         else {
           totals.companyPaidExpenseTotal += amount;
-          totals.cashFlowNet -= amount;
         }
       } else if (!person) totals.totalPendingExpense += amount;
     }

@@ -1,3 +1,4 @@
+import { LanguageSelect, useLocale } from '../context/LocaleContext.js';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Lock, Shield, KeyRound, AlertTriangle, Delete, LogOut } from 'lucide-react';
 import { ApiClient } from '../api/client.js';
@@ -19,6 +20,7 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
   onPasswordLogin,
   onLogout,
 }) => {
+  const { t } = useLocale();
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -96,7 +98,7 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
       });
 
       if (isStale()) return;
-      if (res?.user?.id && user?.id && res.user.id !== user.id) { setError('PIN yalnızca şu anki hesap için geçerlidir.'); setPin(''); return; }
+      if (res?.user?.id && user?.id && res.user.id !== user.id) { setError(t("PIN yalnızca şu anki hesap için geçerlidir.", "This PIN applies to the current account only.")); setPin(''); return; }
       if (res?.token) {
         ApiClient.setToken(res.token);
       }
@@ -114,9 +116,9 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
 
       if (nextFailed >= 5) {
         setLockoutTimer(300); // 5 dakika kilit
-        setError('Çok fazla hatalı PIN denemesi! Güvenlik nedeniyle 5 dakika kilitlendi.');
+        setError(t("Çok fazla hatalı PIN denemesi! Güvenlik nedeniyle 5 dakika kilitlendi.", "Too many incorrect PIN attempts. Try again in five minutes."));
       } else {
-        setError(`Hatalı PIN kodu! (Kalan hak: ${5 - nextFailed})`);
+        setError(t(`Hatalı PIN kodu! (Kalan hak: ${5 - nextFailed})`, `Incorrect PIN. Attempts remaining: ${5 - nextFailed}.`));
       }
     } finally {
       if (!isStale()) setIsVerifying(false);
@@ -136,14 +138,15 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
           </div>
 
           <div>
-            <h3 className="text-base font-bold text-slate-900">{user?.fullName || 'Kullanıcı'}</h3>
+            <h3 className="text-base font-bold text-slate-900">{user?.fullName || t("Kullanıcı", "User")}</h3>
             <p className="text-xs text-slate-500 font-medium">@{user?.username || 'admin'}</p>
           </div>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold border border-slate-200">
             <Shield className="h-3.5 w-3.5 text-blue-600" />
-            <span>Ekran Güvenliği Aktif (Varsayılan PIN: 1234)</span>
+            <span>{t("Ekran kilidi etkin", "Screen lock is active")}</span>
           </div>
+          <div className="mt-3 flex justify-center"><LanguageSelect /></div>
         </div>
 
         {/* Hata veya Kilit Bildirimi */}
@@ -156,13 +159,13 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
 
         {lockoutTimer > 0 && (
           <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs font-bold text-amber-900">
-            Kilit Açılma Süresi: {Math.floor(lockoutTimer / 60)}:{(lockoutTimer % 60).toString().padStart(2, '0')}
+            {t("Kilit Açılma Süresi:", "Try again in:")} {Math.floor(lockoutTimer / 60)}:{(lockoutTimer % 60).toString().padStart(2, '0')}
           </div>
         )}
 
         {/* PIN Daireleri */}
         <div className="py-2">
-          <p className="text-xs text-slate-500 font-medium mb-3">4 Haneli Hızlı PIN Kodunuzu Giriniz</p>
+          <p className="text-xs text-slate-500 font-medium mb-3">{t("4 Haneli Hızlı PIN Kodunuzu Giriniz", "Enter your four-digit PIN")}</p>
           <div className="flex items-center justify-center gap-3">
             {[0, 1, 2, 3].map((idx) => (
               <div
@@ -211,7 +214,7 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
             disabled={lockoutTimer > 0 || isVerifying}
             onClick={handleBackspace}
             className="h-12 rounded-2xl bg-slate-50 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition"
-            title="Geri Sil"
+            title={t("Geri Sil", "Delete digit")}
           >
             <Delete className="h-5 w-5" />
           </button>
@@ -223,7 +226,7 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
             onClick={handleSwitchUser}
             className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
           >
-            <span>Kullanıcı Değiştir</span>
+            <span>{t("Kullanıcı Değiştir", "Switch user")}</span>
           </button>
 
           {onPasswordLogin && (
@@ -231,7 +234,7 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
               onClick={handlePasswordLogin}
               className="text-slate-600 hover:text-slate-900"
             >
-              <span>Parola ile Giriş</span>
+              <span>{t("Parola ile Giriş", "Sign in with password")}</span>
             </button>
           )}
 
@@ -240,7 +243,7 @@ export const ScreenLockModal: React.FC<ScreenLockModalProps> = ({
             className="text-rose-500 hover:text-rose-700 flex items-center gap-1"
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span>Çıkış</span>
+            <span>{t("Çıkış", "Sign out")}</span>
           </button>
         </div>
       </div>

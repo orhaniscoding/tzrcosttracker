@@ -2,8 +2,9 @@ import React, { useState, useLayoutEffect, useRef, useSyncExternalStore } from '
 import { Users, UserPlus, KeyRound, Check, RefreshCw } from 'lucide-react';
 import { ApiClient } from '../api/client.js';
 import { useTheme } from '../context/ThemeContext.js';
-import { ProjectMembershipPanel } from './ProjectMembershipPanel.js';
+import { localizeMembershipMessage, ProjectMembershipPanel } from './ProjectMembershipPanel.js';
 import { canListManagedUsers, membershipError } from '../project-membership.js';
+import { useLocale } from '../context/LocaleContext.js';
 
 interface UserManagementViewProps {
   currentUser: any;
@@ -23,6 +24,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
   subView,
   onNavigateToList,
 }) => {
+  const { t } = useLocale();
   const { settings } = useTheme();
   const mounted = useRef(false);
   const requestNumber = useRef(0);
@@ -109,7 +111,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
     e.preventDefault();
     if (!currentUser?.id || subView !== 'pin' || !isCurrent() || isSubmittingPin) return;
     if (!/^\d{4}$/.test(myPin)) {
-      setPinNotice('Lütfen 4 haneli bir PIN kodu giriniz.');
+      setPinNotice(t('Lütfen 4 haneli bir PIN kodu giriniz.', 'Enter a 4-digit PIN.'));
       return;
     }
 
@@ -118,7 +120,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
       setPinNotice(null);
       await ApiClient.setUserPin({ pin: myPin });
       if (!isCurrent()) return;
-      setPinNotice('4 haneli hızlı PIN kodunuz başarıyla kaydedildi!');
+      setPinNotice(t('4 haneli hızlı PIN kodunuz başarıyla kaydedildi!', 'Your 4-digit PIN was saved.'));
       setMyPin('');
       await onRefreshAuth();
     } catch (err: any) {
@@ -129,14 +131,14 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
   };
 
   const roleLabels: Record<string, { label: string; color: string }> = {
-    admin: { label: 'Yönetici (Admin)', color: 'bg-rose-100 text-rose-800 border-rose-300' },
-    manager: { label: 'Şantiye Müdürü', color: 'bg-purple-100 text-purple-800 border-purple-300' },
-    accountant: { label: 'Muhasebe / Kasa', color: 'bg-blue-100 text-blue-800 border-blue-300' },
-    auditor: { label: 'Denetçi / Mühür', color: 'bg-amber-100 text-amber-800 border-amber-300' },
-    viewer: { label: 'Salt Okunur (İzleyici)', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+    admin: { label: t('Yönetici (Admin)', 'Administrator (Admin)'), color: 'bg-rose-100 text-rose-800 border-rose-300' },
+    manager: { label: t('Şantiye Müdürü', 'Site Manager'), color: 'bg-purple-100 text-purple-800 border-purple-300' },
+    accountant: { label: t('Muhasebe / Kasa', 'Accounting / Cash'), color: 'bg-blue-100 text-blue-800 border-blue-300' },
+    auditor: { label: t('Denetçi / Mühür', 'Auditor / Integrity Seal'), color: 'bg-amber-100 text-amber-800 border-amber-300' },
+    viewer: { label: t('Salt Okunur (İzleyici)', 'Read-Only (Viewer)'), color: 'bg-slate-100 text-slate-800 border-slate-300' },
   };
 
-  if (!isAdmin && subView !== 'pin') return <p role="alert" className="p-4 bg-slate-50 text-slate-700 rounded-xl">Kullanıcı ve proje üyeliği yönetimi yalnızca yöneticiler içindir.</p>;
+  if (!isAdmin && subView !== 'pin') return <p role="alert" className="p-4 bg-slate-50 text-slate-700 rounded-xl">{t('Kullanıcı ve proje üyeliği yönetimi yalnızca yöneticiler içindir.', 'Only administrators can manage users and project memberships.')}</p>;
 
   return (
     <div className="space-y-6">
@@ -146,31 +148,31 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
           <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
               <UserPlus className="h-5 w-5 text-blue-600" />
-              <span>Yeni Personel / Kullanıcı Tanımlama</span>
+              <span>{t('Yeni Personel / Kullanıcı Tanımlama', 'Add a User')}</span>
             </h3>
             {(
               <button
                 onClick={() => { setIsAddingUser(false); onNavigateToList?.(); }}
                 className="text-xs text-blue-600 hover:underline font-semibold"
               >
-                ← Kullanıcı Listesine Dön
+                {t('← Kullanıcı Listesine Dön', '← Back to Users')}
               </button>
             )}
           </div>
 
           {addUserError && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs">
-              {addUserError}
+              {localizeMembershipMessage(addUserError, t)}
             </div>
           )}
 
           <form onSubmit={handleAddUser} className="space-y-4 text-xs">
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               <div className="sm:col-span-6">
-                <label className="block text-slate-700 font-semibold mb-1">Ad Soyad *</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('Ad Soyad *', 'Full Name *')}</label>
                 <input
                   type="text"
-                  placeholder="Örn: Yılmaz Sağır"
+                  placeholder={t('Örn: Yılmaz Sağır', 'E.g. Jordan Lee')}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
@@ -180,10 +182,10 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-slate-700 font-semibold mb-1">Kullanıcı Adı (Giriş için) *</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('Kullanıcı Adı (Giriş için) *', 'Username (for Sign-In) *')}</label>
                 <input
                   type="text"
-                  placeholder="Örn: yilmaz_sagir"
+                  placeholder={t('Örn: yilmaz_sagir', 'E.g. jordan_lee')}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
@@ -194,10 +196,10 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               <div className="sm:col-span-6">
-                <label className="block text-slate-700 font-semibold mb-1">E-posta Adresi *</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('E-posta Adresi *', 'Email Address *')}</label>
                 <input
                   type="email"
-                  placeholder="yilmaz@sirket.com"
+                  placeholder={t('yilmaz@sirket.com', 'jordan@example.com')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
@@ -206,10 +208,10 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-slate-700 font-semibold mb-1">Parola (İlk Giriş) *</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('Parola (İlk Giriş) *', 'Password (First Sign-In) *')}</label>
                 <input
                   type="password"
-                  placeholder="En az 8 karakter..."
+                  placeholder={t('En az 8 karakter...', 'At least 8 characters...')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
@@ -220,26 +222,26 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               <div className="sm:col-span-6">
-                <label className="block text-slate-700 font-semibold mb-1">Rol & Yetki Seviyesi *</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('Rol & Yetki Seviyesi *', 'Role & Permissions *')}</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-blue-600"
                 >
-                  <option value="admin">Yönetici (Tüm Yetkiler)</option>
-                  <option value="manager">Şantiye Müdürü (Onay & Rapor)</option>
-                  <option value="accountant">Muhasebe & Kasa Girişi</option>
-                  <option value="auditor">Denetçi / Mühür</option>
-                  <option value="viewer">Salt Okunur (İzleyici)</option>
+                  <option value="admin">{t('Yönetici (Tüm Yetkiler)', 'Administrator (Full Access)')}</option>
+                  <option value="manager">{t('Şantiye Müdürü (Onay & Rapor)', 'Site Manager (Approvals & Reports)')}</option>
+                  <option value="accountant">{t('Muhasebe & Kasa Girişi', 'Accounting & Cash Entry')}</option>
+                  <option value="auditor">{t('Denetçi / Mühür', 'Auditor / Integrity Seal')}</option>
+                  <option value="viewer">{t('Salt Okunur (İzleyici)', 'Read-Only (Viewer)')}</option>
                 </select>
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-slate-700 font-semibold mb-1">Hızlı Giriş PIN Kodu (4 Hane)</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('Hızlı Giriş PIN Kodu (4 Hane)', 'Quick Sign-In PIN (4 Digits)')}</label>
                 <input
                   type="text"
                   maxLength={4}
-                  placeholder="Örn: 1234"
+                  placeholder={t('Örn: 1234', 'E.g. 1234')}
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono tracking-widest text-center focus:outline-none focus:border-blue-600"
@@ -254,7 +256,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
                   onClick={() => { setIsAddingUser(false); onNavigateToList?.(); }}
                   className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition"
                 >
-                  Vazgeç
+                  {t('Vazgeç', 'Cancel')}
                 </button>
               )}
               <button
@@ -262,7 +264,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
                 disabled={isSubmittingUser}
                 className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-sm disabled:opacity-50"
               >
-                {isSubmittingUser ? 'Kaydediliyor...' : 'Kullanıcıyı Kaydet'}
+                {isSubmittingUser ? t('Kaydediliyor...', 'Saving...') : t('Kullanıcıyı Kaydet', 'Save User')}
               </button>
             </div>
           </form>
@@ -276,10 +278,10 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Kişisel 4 Haneli Hızlı PIN Tanımlama (Kiosk Modu)
+                {t('Kişisel 4 Haneli Hızlı PIN Tanımlama (Kiosk Modu)', 'Set Your 4-Digit Quick PIN (Kiosk Mode)')}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                 Yalnızca kendi hesabınız için 4 haneli PIN belirleyin. Başka hesaba geçiş parola ile yapılır.
+                 {t('Yalnızca kendi hesabınız için 4 haneli PIN belirleyin. Başka hesaba geçiş parola ile yapılır.', 'Set a 4-digit PIN for your own account. To switch accounts, sign in with a password.')}
               </p>
             </div>
           </div>
@@ -287,14 +289,14 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
           {pinNotice && (
             <div role="status" className="p-3 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 text-xs font-semibold flex items-center gap-2">
               <Check className="h-4 w-4 text-emerald-700" />
-              <span>{pinNotice}</span>
+              <span>{localizeMembershipMessage(pinNotice, t)}</span>
             </div>
           )}
 
           <form onSubmit={handleSetMyPin} className="space-y-4 text-xs">
             <div>
               <label htmlFor="personal-pin" className="block text-slate-700 font-semibold mb-1.5">
-                Yeni 4 Haneli PIN Kodunuz
+                {t('Yeni 4 Haneli PIN Kodunuz', 'Your New 4-Digit PIN')}
               </label>
               <input
                 id="personal-pin"
@@ -310,7 +312,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
                 required
               />
               <p className="text-[11px] text-slate-500 mt-1.5">
-                PIN kodunuz sunucuda Scrypt ile hashlenerek saklanır.
+                {t('PIN kodunuz sunucuda Scrypt ile hashlenerek saklanır.', 'The server stores a hash of your PIN using scrypt.')}
               </p>
             </div>
 
@@ -319,7 +321,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
               disabled={isSubmittingPin}
               className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-sm disabled:opacity-50"
             >
-              {isSubmittingPin ? 'Kaydediliyor...' : 'PIN Kodunu Güncelle'}
+              {isSubmittingPin ? t('Kaydediliyor...', 'Saving...') : t('PIN Kodunu Güncelle', 'Update PIN')}
             </button>
           </form>
         </div>
@@ -331,10 +333,10 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Users className="h-5 w-5 text-blue-600" />
-                  <span>Kullanıcı Yönetimi & Roller</span>
+                  <span>{t('Kullanıcı Yönetimi & Roller', 'User Management & Roles')}</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Sistemdeki tüm personellerin yetkilerini ve aktif durumlarını yönetin
+                  {t('Sistemdeki tüm personellerin yetkilerini ve aktif durumlarını yönetin', 'Manage user permissions and account status.')}
                 </p>
               </div>
 
@@ -345,7 +347,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
                   style={{ backgroundColor: settings.primaryColor }}
                 >
                   <UserPlus className="h-4 w-4" />
-                  <span>{isAddingUser ? 'Formu Kapat' : '+ Yeni Kullanıcı Ekle'}</span>
+                  <span>{isAddingUser ? t('Formu Kapat', 'Close Form') : t('+ Yeni Kullanıcı Ekle', '+ Add New User')}</span>
                 </button>
               )}
             </div>
@@ -359,7 +361,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
           <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <span className="text-xs font-bold text-slate-800">
-              Kayıtlı Kullanıcılar & Yetkiler ({users.length} kişi)
+              {t('Kayıtlı Kullanıcılar & Yetkiler (', 'Registered Users & Permissions (')}{users.length}{t(' kişi)', ' users)')}
             </span>
             <button
               onClick={fetchUsers}
@@ -367,24 +369,24 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
               className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-medium"
             >
               <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>Yenile</span>
+              <span>{t('Yenile', 'Refresh')}</span>
             </button>
           </div>
 
-          {listError && <p role="alert" className="p-4 text-rose-700">{listError} Yenile düğmesiyle tekrar deneyin.</p>}
-          {isLoading && <p role="status" className="p-4 text-slate-600">Kullanıcılar yükleniyor...</p>}
-          {!isLoading && !listError && !users.length && <p className="p-4 text-slate-600">Kayıtlı kullanıcı bulunmuyor.</p>}
+          {listError && <p role="alert" className="p-4 text-rose-700">{localizeMembershipMessage(listError, t)}{t(' Yenile düğmesiyle tekrar deneyin.', ' Click Refresh to try again.')}</p>}
+          {isLoading && <p role="status" className="p-4 text-slate-600">{t('Kullanıcılar yükleniyor...', 'Loading users...')}</p>}
+          {!isLoading && !listError && !users.length && <p className="p-4 text-slate-600">{t('Kayıtlı kullanıcı bulunmuyor.', 'No users found.')}</p>}
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-100 text-slate-700 font-semibold uppercase border-b border-slate-200">
-                <th className="py-2.5 px-4">Kullanıcı Adı & İsim</th>
-                <th className="py-2.5 px-4">E-posta</th>
-                <th className="py-2.5 px-4">Yetki Rolü</th>
-                <th className="py-2.5 px-4 text-center">Hızlı PIN</th>
-                <th className="py-2.5 px-4 text-center">2FA Durumu</th>
-                <th className="py-2.5 px-4 text-center">Durum</th>
+                <th className="py-2.5 px-4">{t('Kullanıcı Adı & İsim', 'Username & Name')}</th>
+                <th className="py-2.5 px-4">{t('E-posta', 'Email')}</th>
+                <th className="py-2.5 px-4">{t('Yetki Rolü', 'Role')}</th>
+                <th className="py-2.5 px-4 text-center">{t('Hızlı PIN', 'Quick PIN')}</th>
+                <th className="py-2.5 px-4 text-center">{t('2FA Durumu', '2FA Status')}</th>
+                <th className="py-2.5 px-4 text-center">{t('Durum', 'Status')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -400,7 +402,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
                       </div>
                       <div>
                         <div>
-                          {u.fullName} {isCurrent && <span className="text-blue-600 font-bold">(Siz)</span>}
+                          {u.fullName} {isCurrent && <span className="text-blue-600 font-bold">{t('(Siz)', '(You)')}</span>}
                         </div>
                         <div className="text-[11px] text-slate-400 font-normal font-mono">@{u.username}</div>
                       </div>
@@ -417,7 +419,7 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
                     <td className="py-2.5 px-4 text-center">
                       {u.hasPin ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
-                          ✓ Aktif (4 Haneli)
+                          {t('✓ Aktif (4 Haneli)', '✓ Active (4 Digits)')}
                         </span>
                       ) : (
                         <span className="text-slate-400 text-[11px]">-</span>
@@ -427,16 +429,16 @@ const UserManagementContent: React.FC<UserManagementViewProps> = ({
                     <td className="py-2.5 px-4 text-center">
                       {u.twoFactorEnabled ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-300">
-                          ✓ Açık (TOTP)
+                          {t('✓ Açık (TOTP)', '✓ Enabled (TOTP)')}
                         </span>
                       ) : (
-                        <span className="text-slate-400 text-[11px]">Kapalı</span>
+                        <span className="text-slate-400 text-[11px]">{t('Kapalı', 'Disabled')}</span>
                       )}
                     </td>
 
                     <td className="py-2.5 px-4 text-center">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                        {u.isActive ? 'Aktif' : 'Pasif'}
+                        {u.isActive ? t('Aktif', 'Active') : t('Pasif', 'Inactive')}
                       </span>
                     </td>
                   </tr>
