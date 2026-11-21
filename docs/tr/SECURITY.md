@@ -18,4 +18,4 @@ Sunucu seçili alanları şifreler ve kendi anahtarlarıyla çözebilir. Sunucuy
 
 ## Desteklenen sürümler
 
-Depo şu anda bir kaynak adayı yayımlar. Sınadığınız kaynak sürümünü belirtin. Güvenlik yanıt süresi ve sürüm destek süresi henüz belirlenmemiştir.
+Güncel sürüm, kendi sunucunuzda çalıştırılan [v1.0.0 kaynak sürümüdür](https://github.com/orhaniscoding/tzrcosttracker/releases/tag/v1.0.0). Sınadığınız tam etiketi veya commit'i belirtin. Güvenlik yanıt süresi ve sürüm destek süresi henüz belirlenmemiştir.

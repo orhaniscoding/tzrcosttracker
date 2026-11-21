@@ -2,6 +2,8 @@
 
 [Read in Turkish](README.tr.md)
 
+[Latest release: v1.0.0](https://github.com/orhaniscoding/tzrcosttracker/releases/tag/v1.0.0)
+
 TZR Cost Tracker is a self-hosted web app for tracking project costs, income, cash, bank accounts, and payments. It runs on your own computer or server. Open it in a browser after starting the app with Node.js or Docker Compose.
 
 ## Quick start
@@ -44,7 +46,7 @@ Try it with synthetic data. Create a project, a category, and a cash account wit
 
 ## Project status
 
-This repository contains the V1 source candidate. The platform table in the installation guide records the tested operating systems and installation routes. Review the pilot procedure before storing company data on a publicly reachable server. The server encrypts selected sensitive fields. Protect the SQLite database, backups, and keys separately.
+This is the v1.0.0 self-hosted source release, not a hosted service. The platform table in the installation guide records tested operating systems and installation routes. Review the pilot procedure before storing company data on a publicly reachable server. The server encrypts selected sensitive fields. Protect the SQLite database, backups, and keys separately.
 
 ## License and credit
 
